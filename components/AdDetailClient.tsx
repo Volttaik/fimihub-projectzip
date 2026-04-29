@@ -7,11 +7,12 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
 import { Label } from '@/components/ui/label'
-import { MapPin, Eye, Heart, Share2, Phone, Mail, ChevronLeft, ChevronRight, BadgeCheck, Zap, Calendar, ArrowLeft, ShoppingCart, Package, Loader2, MessageSquarePlus, CheckCircle2, Minus, Plus, ClipboardList, MessageCircle, Images, PlayCircle, Tag } from 'lucide-react'
+import { MapPin, Eye, Heart, Phone, Mail, ChevronLeft, ChevronRight, BadgeCheck, Zap, Calendar, ArrowLeft, ShoppingCart, Package, Loader2, MessageSquarePlus, CheckCircle2, Minus, Plus, ClipboardList, MessageCircle, Images, PlayCircle, Tag } from 'lucide-react'
 import type { Ad } from '@/lib/supabase/types'
 import { formatPrice, timeAgo, getInitials } from '@/lib/utils'
 import PostCard from '@/components/PostCard'
 import CommentsSection from '@/components/CommentsSection'
+import ShareMenu from '@/components/ShareMenu'
 import { toast } from 'sonner'
 import { createClient } from '@/lib/supabase/client'
 
@@ -212,11 +213,6 @@ export default function AdDetailClient({ ad, similar, currentUserId }: Props) {
     }
   }
 
-  const handleShare = () => {
-    navigator.clipboard.writeText(window.location.href)
-    toast.success('Link copied to clipboard!')
-  }
-
   const posterName = ad.profiles?.full_name || 'FimiHub User'
 
   return (
@@ -337,9 +333,11 @@ export default function AdDetailClient({ ad, similar, currentUserId }: Props) {
               <Heart className={`w-4 h-4 ${saved ? 'fill-rose-500 text-rose-500' : ''}`} />
               {saved ? 'Saved' : 'Save'}
             </Button>
-            <Button onClick={handleShare} variant="outline" className="gap-2 flex-1">
-              <Share2 className="w-4 h-4" /> Share
-            </Button>
+            <ShareMenu
+              title={ad.title}
+              text={`Check out "${ad.title}" on FimiHub${ad.location ? ` — ${ad.location}` : ''}`}
+              className="flex-1"
+            />
           </div>
 
           <CommentsSection adId={ad.id} currentUserId={currentUserId} />
