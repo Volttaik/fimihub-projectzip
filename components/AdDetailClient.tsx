@@ -346,7 +346,7 @@ export default function AdDetailClient({ ad, similar, currentUserId }: Props) {
             <div>
               <h2 className="text-lg font-bold mb-4">Similar Ad Spaces</h2>
               <div className="flex flex-col gap-3">
-                {similar.map(s => <PostCard key={s.id} ad={s} />)}
+                {similar.map(s => <PostCard key={s.id} ad={s} currentUserId={currentUserId} />)}
               </div>
             </div>
           )}

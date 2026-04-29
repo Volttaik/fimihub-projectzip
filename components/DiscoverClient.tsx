@@ -47,7 +47,7 @@ function FilterSelect({ label, value, onChange, options, placeholder }: {
   )
 }
 
-export default function DiscoverClient({ initialAds }: { initialAds: Ad[] }) {
+export default function DiscoverClient({ initialAds, currentUserId = null }: { initialAds: Ad[]; currentUserId?: string | null }) {
   const searchParams = useSearchParams()
   const router = useRouter()
   const scrollRef = useRef<HTMLDivElement>(null)
@@ -248,7 +248,7 @@ export default function DiscoverClient({ initialAds }: { initialAds: Ad[] }) {
             </div>
           ) : (
             <div className="flex flex-col gap-3">
-              {filtered.map(ad => <PostCard key={ad.id} ad={ad} />)}
+              {filtered.map(ad => <PostCard key={ad.id} ad={ad} currentUserId={currentUserId} />)}
             </div>
           )}
         </div>

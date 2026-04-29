@@ -21,6 +21,16 @@ async function getAds(): Promise<Ad[]> {
   }
 }
 
+async function getCurrentUserId(): Promise<string | null> {
+  try {
+    const supabase = await createClient()
+    const { data: { user } } = await supabase.auth.getUser()
+    return user?.id ?? null
+  } catch {
+    return null
+  }
+}
+
 function DiscoverSkeleton() {
   return (
     <div className="flex flex-col gap-3">
@@ -43,14 +53,14 @@ function DiscoverSkeleton() {
 }
 
 export default async function DiscoverPage() {
-  const ads = await getAds()
+  const [ads, currentUserId] = await Promise.all([getAds(), getCurrentUserId()])
   return (
     <Suspense fallback={
       <div className="container mx-auto px-4 py-6 max-w-6xl">
         <DiscoverSkeleton />
       </div>
     }>
-      <DiscoverClient initialAds={ads} />
+      <DiscoverClient initialAds={ads} currentUserId={currentUserId} />
     </Suspense>
   )
 }

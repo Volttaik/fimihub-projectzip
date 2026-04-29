@@ -2,7 +2,8 @@
 import { useState } from 'react'
 import Link from 'next/link'
 import Image from 'next/image'
-import { MapPin, Eye, Heart, MessageCircle, Share2, Star, ShoppingBag, Wrench, Home, Briefcase, BadgeCheck, PlayCircle, Images } from 'lucide-react'
+import { useRouter } from 'next/navigation'
+import { MapPin, Eye, Heart, MessageCircle, Share2, Star, ShoppingBag, Wrench, Home, Briefcase, BadgeCheck, PlayCircle, Images, X, Send, ShoppingCart } from 'lucide-react'
 import type { Ad } from '@/lib/supabase/types'
 import { formatPrice, timeAgo } from '@/lib/utils'
 import { createClient } from '@/lib/supabase/client'
@@ -28,11 +29,16 @@ function getAvatarColor(name: string) {
 interface Props {
   ad: Ad
   savedByUser?: boolean
+  currentUserId?: string | null
 }
 
-export default function PostCard({ ad, savedByUser = false }: Props) {
+export default function PostCard({ ad, savedByUser = false, currentUserId = null }: Props) {
   const [saved, setSaved] = useState(savedByUser)
   const [savingLoading, setSavingLoading] = useState(false)
+  const [msgOpen, setMsgOpen] = useState(false)
+  const [msgBody, setMsgBody] = useState('')
+  const [msgLoading, setMsgLoading] = useState(false)
+  const router = useRouter()
   const cat = categoryConfig[ad.category] ?? categoryConfig.products
   const Icon = cat.icon
   const avatarColor = getAvatarColor(ad.profiles?.full_name || ad.user_id)
@@ -41,7 +47,42 @@ export default function PostCard({ ad, savedByUser = false }: Props) {
   const firstMedia = media[0]
   const isVideo = firstMedia?.type === 'video'
   const isAlbum = media.length > 1
+  const isOwner = !!currentUserId && currentUserId === ad.user_id
+  const canBuy = !!ad.accept_payments && !!ad.price && !isOwner
   const supabase = createClient()
+
+  const openMessage = async () => {
+    if (!currentUserId) {
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) {
+        toast.error('Sign in to message the seller')
+        router.push(`/login?redirect=/ad/${ad.id}`)
+        return
+      }
+    }
+    if (isOwner) { toast.error("You can't message your own ad"); return }
+    setMsgOpen(true)
+  }
+
+  const sendMessage = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!msgBody.trim()) return
+    setMsgLoading(true)
+    try {
+      const res = await fetch('/api/conversations', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ad_id: ad.id, body: msgBody.trim() }),
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error || 'Could not send message')
+      toast.success('Message sent — opening chat')
+      router.push(`/inbox/${data.conversation_id}`)
+    } catch (err: any) {
+      toast.error(err.message)
+      setMsgLoading(false)
+    }
+  }
 
   const handleSave = async () => {
     setSavingLoading(true)
@@ -141,12 +182,30 @@ export default function PostCard({ ad, savedByUser = false }: Props) {
         </div>
       </div>
 
+      {canBuy && (
+        <div className="px-4 pb-3">
+          <Link href={`/ad/${ad.id}#buy`}>
+            <button className="w-full flex items-center justify-center gap-2 bg-primary text-primary-foreground rounded-xl px-3 py-2.5 text-sm font-semibold hover:opacity-90 transition-opacity">
+              <ShoppingCart className="w-4 h-4" /> Buy now
+            </button>
+          </Link>
+        </div>
+      )}
+
       <div className="flex items-center border-t border-border/60 px-1">
-        <Link href={`/ad/${ad.id}`}
-          className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-primary transition-colors px-3 py-2.5 rounded-xl hover:bg-primary/8 flex-1 justify-center">
-          <MessageCircle className="w-4 h-4" />
-          <span className="hidden sm:inline font-medium">Contact</span>
-        </Link>
+        {isOwner ? (
+          <Link href="/dashboard"
+            className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-primary transition-colors px-3 py-2.5 rounded-xl hover:bg-primary/8 flex-1 justify-center">
+            <MessageCircle className="w-4 h-4" />
+            <span className="hidden sm:inline font-medium">Manage</span>
+          </Link>
+        ) : (
+          <button onClick={openMessage}
+            className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-primary transition-colors px-3 py-2.5 rounded-xl hover:bg-primary/8 flex-1 justify-center">
+            <MessageCircle className="w-4 h-4" />
+            <span className="hidden sm:inline font-medium">Message</span>
+          </button>
+        )}
         <div className="flex items-center gap-1.5 text-xs text-muted-foreground px-3 py-2.5 flex-1 justify-center">
           <Eye className="w-4 h-4" />
           <span>{(ad.views || 0).toLocaleString()}</span>
@@ -162,6 +221,48 @@ export default function PostCard({ ad, savedByUser = false }: Props) {
           <span className="hidden sm:inline font-medium">Share</span>
         </button>
       </div>
+
+      {msgOpen && (
+        <div className="fixed inset-0 z-[60] bg-black/40 backdrop-blur-sm flex items-end sm:items-center justify-center p-3" onClick={() => !msgLoading && setMsgOpen(false)}>
+          <div className="bg-card rounded-2xl shadow-xl w-full max-w-md p-5 animate-in-up" onClick={e => e.stopPropagation()}>
+            <div className="flex items-start justify-between gap-3 mb-3">
+              <div>
+                <h3 className="font-bold text-base">Message {posterName.split(' ')[0]}</h3>
+                <p className="text-xs text-muted-foreground line-clamp-1">About: {ad.title}</p>
+              </div>
+              <button onClick={() => setMsgOpen(false)} disabled={msgLoading}
+                className="p-1.5 rounded-lg hover:bg-muted transition-colors">
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+            <form onSubmit={sendMessage} className="flex flex-col gap-3">
+              <textarea
+                value={msgBody}
+                onChange={e => setMsgBody(e.target.value)}
+                placeholder={`Hi, is this still available?`}
+                rows={4}
+                autoFocus
+                className="w-full text-sm px-3 py-2.5 rounded-xl border border-border bg-background focus:outline-none focus:ring-2 focus:ring-ring resize-none"
+                required
+              />
+              <div className="flex items-center gap-2">
+                <button type="button" onClick={() => setMsgOpen(false)} disabled={msgLoading}
+                  className="flex-1 px-3 py-2 text-sm rounded-xl border border-border hover:bg-muted transition-colors">
+                  Cancel
+                </button>
+                <button type="submit" disabled={msgLoading || !msgBody.trim()}
+                  className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 text-sm font-semibold rounded-xl bg-primary text-primary-foreground hover:opacity-90 transition-opacity disabled:opacity-50">
+                  {msgLoading ? (
+                    <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                  ) : (
+                    <><Send className="w-3.5 h-3.5" /> Send</>
+                  )}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </article>
   )
 }
