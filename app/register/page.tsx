@@ -6,10 +6,17 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { FimiLogo } from '@/components/Logo'
-import { UserPlus, Eye, EyeOff, ArrowRight, Mail, Camera, CheckCircle2, ChevronRight, ChevronLeft } from 'lucide-react'
+import { UserPlus, Eye, EyeOff, ArrowRight, Mail, Camera, CheckCircle2, ChevronRight, ChevronLeft, ShoppingBag, Wrench, Home, Briefcase } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { toast } from 'sonner'
 import { SPECIALISATIONS } from '@/lib/nigeria-data'
+
+const SPECIALISATION_ICONS = {
+  ShoppingBag,
+  Wrench,
+  Home,
+  Briefcase,
+} as const
 
 const SEX_OPTIONS = [
   { value: 'male', label: 'Male' },
@@ -86,67 +93,58 @@ export default function RegisterPage() {
 
   const handleComplete = async () => {
     setLoading(true)
-    const redirectUrl = `${window.location.origin}/auth/callback?next=/dashboard`
 
-    const { data, error } = await supabase.auth.signUp({
-      email,
-      password,
-      options: {
-        data: {
-          full_name: fullName,
-          phone,
-          date_of_birth: dob,
-          sex,
-          bio,
-          specialisations,
-        },
-        emailRedirectTo: redirectUrl,
-      },
-    })
-
-    if (error) {
-      toast.error(error.message)
-      setLoading(false)
-      return
-    }
-
-    if (data.user) {
-      // Upload avatar if provided
-      let avatarUrl: string | null = null
-      if (avatarFile) {
-        const ext = avatarFile.name.split('.').pop()
-        const path = `avatars/${data.user.id}.${ext}`
-        const { error: uploadError } = await supabase.storage
-          .from('ad-media')
-          .upload(path, avatarFile, { upsert: true, contentType: avatarFile.type })
-        if (!uploadError) {
-          const { data: urlData } = supabase.storage.from('ad-media').getPublicUrl(path)
-          avatarUrl = urlData.publicUrl
-        }
-      }
-
-      // Update profile with all data
-      await supabase.from('profiles').update({
+    const res = await fetch('/api/auth/register', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        email,
+        password,
+        full_name: fullName,
         phone,
         date_of_birth: dob,
         sex,
         bio,
         specialisations,
-        ...(avatarUrl ? { avatar_url: avatarUrl } : {}),
-      }).eq('id', data.user.id)
+      }),
+    })
 
-      // Send custom verification email
-      try {
-        await fetch('/api/send-verification', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ email, name: fullName, userId: data.user.id }),
-        })
-      } catch {}
+    const result = await res.json().catch(() => ({} as any))
 
-      setRegisteredEmail(email)
-      setSuccess(true)
+    if (!res.ok || result.error) {
+      toast.error(result.error || 'Could not create your account')
+      setLoading(false)
+      return
     }
+
+    // Upload avatar if provided (uses anon client; storage policy allows authenticated uploads)
+    if (avatarFile && result.userId) {
+      try {
+        // Sign in briefly to upload avatar under the user's session
+        const { data: signIn } = await supabase.auth.signInWithPassword({ email, password })
+        if (signIn?.user) {
+          const ext = avatarFile.name.split('.').pop()
+          const path = `avatars/${signIn.user.id}.${ext}`
+          const { error: uploadError } = await supabase.storage
+            .from('ad-media')
+            .upload(path, avatarFile, { upsert: true, contentType: avatarFile.type })
+          if (!uploadError) {
+            const { data: urlData } = supabase.storage.from('ad-media').getPublicUrl(path)
+            await supabase.from('profiles').update({ avatar_url: urlData.publicUrl }).eq('id', signIn.user.id)
+          }
+          await supabase.auth.signOut()
+        }
+      } catch (e) {
+        console.error('Avatar upload failed:', e)
+      }
+    }
+
+    if (result.warning) {
+      toast.warning(result.warning)
+    }
+
+    setRegisteredEmail(email)
+    setSuccess(true)
     setLoading(false)
   }
 
@@ -311,10 +309,13 @@ export default function RegisterPage() {
               <div className="grid grid-cols-2 gap-3 mb-6">
                 {SPECIALISATIONS.map(s => {
                   const selected = specialisations.includes(s.id)
+                  const Icon = SPECIALISATION_ICONS[s.icon as keyof typeof SPECIALISATION_ICONS]
                   return (
                     <button key={s.id} type="button" onClick={() => toggleSpecialisation(s.id)}
                       className={`flex flex-col items-center gap-2 p-4 rounded-2xl border-2 text-center transition-all duration-200 ${selected ? 'border-primary bg-primary/5 shadow-sm' : 'border-border hover:border-primary/40 hover:bg-muted/40'}`}>
-                      <span className="text-3xl">{s.emoji}</span>
+                      <span className={`w-12 h-12 rounded-xl flex items-center justify-center ${selected ? 'bg-primary/10 text-primary' : 'bg-muted text-muted-foreground'}`}>
+                        <Icon className="w-6 h-6" />
+                      </span>
                       <span className={`text-sm font-semibold ${selected ? 'text-primary' : ''}`}>{s.label}</span>
                       <span className="text-xs text-muted-foreground leading-tight">{s.desc}</span>
                       {selected && <CheckCircle2 className="w-4 h-4 text-primary mt-0.5" />}

@@ -59,7 +59,7 @@ export default function DashboardClient({ user, profile, ads, transactions }: Pr
     if (credits < 5) { toast.error('You need at least 5 credits to boost an ad'); return }
     const { error } = await supabase.rpc('boost_ad', { ad_id: adId })
     if (error) toast.error('Boost failed. Please try again.')
-    else toast.success('Ad boosted for 7 days! 🚀')
+    else toast.success('Ad boosted for 7 days')
   }
 
   return (

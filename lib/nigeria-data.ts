@@ -85,8 +85,10 @@ export const BUSINESS_TYPES = [
 ]
 
 export const SPECIALISATIONS = [
-  { id: 'products', label: 'Products', emoji: '🛍️', desc: 'Buy & sell items' },
-  { id: 'services', label: 'Services & Skills', emoji: '🔧', desc: 'Hire or offer expertise' },
-  { id: 'rentals', label: 'Apartments & Rentals', emoji: '🏠', desc: 'Homes, rooms & spaces' },
-  { id: 'business', label: 'Business & Brands', emoji: '💼', desc: 'Promote your business' },
-]
+  { id: 'products', label: 'Products', icon: 'ShoppingBag', desc: 'Buy & sell items' },
+  { id: 'services', label: 'Services & Skills', icon: 'Wrench', desc: 'Hire or offer expertise' },
+  { id: 'rentals', label: 'Apartments & Rentals', icon: 'Home', desc: 'Homes, rooms & spaces' },
+  { id: 'business', label: 'Business & Brands', icon: 'Briefcase', desc: 'Promote your business' },
+] as const
+
+export type SpecialisationIcon = 'ShoppingBag' | 'Wrench' | 'Home' | 'Briefcase'

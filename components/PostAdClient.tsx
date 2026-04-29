@@ -263,7 +263,7 @@ export default function PostAdClient({ userId, userEmail, credits }: Props) {
                 onChange={e => set('tags', e.target.value)} className="mt-1.5" />
             </div>
             <div className="flex justify-between">
-              <Button type="button" variant="outline" onClick={() => setStep(1)}>← Back</Button>
+              <Button type="button" variant="outline" onClick={() => setStep(1)}>Back</Button>
               <Button type="button" disabled={!step2Valid} onClick={() => setStep(3)}>Continue →</Button>
             </div>
           </div>
@@ -333,9 +333,9 @@ export default function PostAdClient({ userId, userEmail, credits }: Props) {
             </div>
 
             <div className="flex justify-between">
-              <Button type="button" variant="outline" onClick={() => setStep(2)}>← Back</Button>
+              <Button type="button" variant="outline" onClick={() => setStep(2)}>Back</Button>
               <Button type="submit" disabled={loading} className="gap-2">
-                {loading ? <><Loader2 className="w-4 h-4 animate-spin" /> Posting…</> : 'Post Ad Space 🚀'}
+                {loading ? <><Loader2 className="w-4 h-4 animate-spin" /> Posting…</> : 'Post Ad Space'}
               </Button>
             </div>
           </div>

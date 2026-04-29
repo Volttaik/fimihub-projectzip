@@ -3,7 +3,7 @@ import { useState } from 'react'
 import Link from 'next/link'
 import Image from 'next/image'
 import { Button } from '@/components/ui/button'
-import { MapPin, Eye, Heart, Share2, Phone, Mail, ChevronLeft, ChevronRight, PlayCircle, BadgeCheck, Zap, Images, Calendar, ArrowLeft } from 'lucide-react'
+import { MapPin, Eye, Heart, Share2, Phone, Mail, ChevronLeft, ChevronRight, PlayCircle, BadgeCheck, Zap, Images, Calendar, ArrowLeft, AlertTriangle } from 'lucide-react'
 import type { Ad } from '@/lib/supabase/types'
 import { formatPrice, timeAgo, getInitials } from '@/lib/utils'
 import PostCard from '@/components/PostCard'
@@ -216,9 +216,9 @@ export default function AdDetailClient({ ad, similar }: Props) {
             </div>
 
             <div className="mt-5 pt-5 border-t border-border text-xs text-muted-foreground space-y-1">
-              <p>⚠️ Always meet in a safe, public place</p>
-              <p>⚠️ Never send money in advance</p>
-              <p>⚠️ FimiHub does not facilitate payments</p>
+              <p className="flex items-start gap-2"><AlertTriangle className="w-4 h-4 mt-0.5 shrink-0 text-amber-500" /> Always meet in a safe, public place</p>
+              <p className="flex items-start gap-2"><AlertTriangle className="w-4 h-4 mt-0.5 shrink-0 text-amber-500" /> Never send money in advance</p>
+              <p className="flex items-start gap-2"><AlertTriangle className="w-4 h-4 mt-0.5 shrink-0 text-amber-500" /> FimiHub does not facilitate payments</p>
             </div>
           </div>
         </div>
