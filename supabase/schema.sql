@@ -9,6 +9,8 @@ create table if not exists public.profiles (
   avatar_url text,
   credits integer not null default 0,
   phone text,
+  date_of_birth date,
+  sex text check (sex in ('male','female','other','prefer_not_to_say')),
   location text,
   email_verified boolean not null default false,
   created_at timestamptz not null default now()
@@ -26,11 +28,14 @@ create policy "Users can update own profile" on public.profiles
 create or replace function public.handle_new_user()
 returns trigger as $$
 begin
-  insert into public.profiles (id, email, full_name, email_verified)
+  insert into public.profiles (id, email, full_name, phone, date_of_birth, sex, email_verified)
   values (
     new.id,
     new.email,
     new.raw_user_meta_data->>'full_name',
+    new.raw_user_meta_data->>'phone',
+    nullif(new.raw_user_meta_data->>'date_of_birth', '')::date,
+    new.raw_user_meta_data->>'sex',
     coalesce((new.raw_user_meta_data->>'email_verified')::boolean, false)
   );
   return new;
