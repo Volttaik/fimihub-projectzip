@@ -1,9 +1,7 @@
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import PostAdClient from '@/components/PostAdClient'
-
-export const FREE_POSTS_LIMIT = 3
-export const POST_COST_CREDITS = 5
+import { FREE_POSTS_LIMIT, POST_COST_CREDITS } from '@/lib/constants'
 
 export default async function PostPage() {
   const supabase = await createClient()

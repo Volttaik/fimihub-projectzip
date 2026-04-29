@@ -122,29 +122,27 @@ export interface CreditTransaction {
   created_at: string
 }
 
+type AnyRow = Record<string, any>
+type LooseTable = { Row: AnyRow; Insert: AnyRow; Update: AnyRow }
+
 export interface Database {
   public: {
     Tables: {
-      profiles: {
-        Row: Profile
-        Insert: Partial<Profile> & { id: string; email: string }
-        Update: Partial<Profile>
-      }
-      ads: {
-        Row: Ad
-        Insert: Omit<Ad, 'id' | 'created_at' | 'updated_at' | 'views' | 'featured' | 'is_boosted'>
-        Update: Partial<Ad>
-      }
-      credit_transactions: {
-        Row: CreditTransaction
-        Insert: Omit<CreditTransaction, 'id' | 'created_at'>
-        Update: Partial<CreditTransaction>
-      }
-      saves: {
-        Row: { user_id: string; ad_id: string; created_at: string }
-        Insert: { user_id: string; ad_id: string }
-        Update: never
-      }
+      profiles: { Row: Profile; Insert: Partial<Profile> & { id: string; email: string }; Update: Partial<Profile> }
+      ads: { Row: Ad; Insert: Omit<Ad, 'id' | 'created_at' | 'updated_at' | 'views' | 'featured' | 'is_boosted'>; Update: Partial<Ad> }
+      credit_transactions: { Row: CreditTransaction; Insert: Omit<CreditTransaction, 'id' | 'created_at'>; Update: Partial<CreditTransaction> }
+      saves: { Row: { user_id: string; ad_id: string; created_at: string }; Insert: { user_id: string; ad_id: string }; Update: never }
+      ad_views: LooseTable
+      comments: LooseTable
+      conversations: LooseTable
+      custom_requests: LooseTable
+      email_verification_tokens: LooseTable
+      messages: LooseTable
+      orders: LooseTable
+      password_reset_tokens: LooseTable
     }
+    Views: Record<string, LooseTable>
+    Functions: Record<string, { Args: AnyRow; Returns: any }>
+    Enums: Record<string, string>
   }
 }

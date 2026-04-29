@@ -248,7 +248,7 @@ export default function DiscoverClient({ initialAds, currentUserId = null }: { i
             </div>
           ) : (
             <div className="flex flex-col gap-3">
-              {filtered.map(ad => <PostCard key={ad.id} ad={ad} currentUserId={currentUserId} />)}
+              {filtered.map((ad, idx) => <PostCard key={ad.id} ad={ad} currentUserId={currentUserId} priority={idx === 0} />)}
             </div>
           )}
         </div>

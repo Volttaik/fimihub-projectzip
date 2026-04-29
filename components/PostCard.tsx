@@ -30,14 +30,15 @@ interface Props {
   ad: Ad
   savedByUser?: boolean
   currentUserId?: string | null
+  priority?: boolean
 }
 
-export default function PostCard({ ad, savedByUser = false, currentUserId = null }: Props) {
+export default function PostCard({ ad, savedByUser = false, currentUserId = null, priority = false }: Props) {
   const [saved, setSaved] = useState(savedByUser)
   const [savingLoading, setSavingLoading] = useState(false)
-  const [msgOpen, setMsgOpen] = useState(false)
-  const [msgBody, setMsgBody] = useState('')
-  const [msgLoading, setMsgLoading] = useState(false)
+  const [cmtOpen, setCmtOpen] = useState(false)
+  const [cmtBody, setCmtBody] = useState('')
+  const [cmtLoading, setCmtLoading] = useState(false)
   const router = useRouter()
   const cat = categoryConfig[ad.category] ?? categoryConfig.products
   const Icon = cat.icon
@@ -51,36 +52,38 @@ export default function PostCard({ ad, savedByUser = false, currentUserId = null
   const canBuy = !!ad.accept_payments && !!ad.price && !isOwner
   const supabase = createClient()
 
-  const openMessage = async () => {
+  const openComment = async () => {
     if (!currentUserId) {
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) {
-        toast.error('Sign in to message the seller')
+        toast.error('Sign in to leave a comment')
         router.push(`/login?redirect=/ad/${ad.id}`)
         return
       }
     }
-    if (isOwner) { toast.error("You can't message your own ad"); return }
-    setMsgOpen(true)
+    setCmtOpen(true)
   }
 
-  const sendMessage = async (e: React.FormEvent) => {
+  const sendComment = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!msgBody.trim()) return
-    setMsgLoading(true)
+    if (!cmtBody.trim()) return
+    setCmtLoading(true)
     try {
-      const res = await fetch('/api/conversations', {
+      const res = await fetch('/api/comments', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ad_id: ad.id, body: msgBody.trim() }),
+        body: JSON.stringify({ adId: ad.id, body: cmtBody.trim() }),
       })
       const data = await res.json()
-      if (!res.ok) throw new Error(data.error || 'Could not send message')
-      toast.success('Message sent — opening chat')
-      router.push(`/inbox/${data.conversation_id}`)
+      if (!res.ok) throw new Error(data.error || 'Could not post comment')
+      toast.success('Comment posted')
+      setCmtBody('')
+      setCmtOpen(false)
+      router.push(`/ad/${ad.id}#comments`)
     } catch (err: any) {
       toast.error(err.message)
-      setMsgLoading(false)
+    } finally {
+      setCmtLoading(false)
     }
   }
 
@@ -158,7 +161,7 @@ export default function PostCard({ ad, savedByUser = false, currentUserId = null
                   <video src={firstMedia.url} className="w-full h-full object-cover" muted />
                 </>
               ) : (
-                <Image src={firstMedia.url} alt={ad.title} fill className="object-cover transition-transform duration-500 group-hover/card:scale-[1.03]" sizes="(max-width: 768px) 100vw, 600px" />
+                <Image src={firstMedia.url} alt={ad.title} fill priority={priority} className="object-cover transition-transform duration-500 group-hover/card:scale-[1.03]" sizes="(max-width: 768px) 100vw, 600px" />
               )}
               {isAlbum && (
                 <div className="absolute bottom-2 right-2 z-10 bg-black/60 text-white text-xs px-2 py-1 rounded-full flex items-center gap-1">
@@ -193,19 +196,11 @@ export default function PostCard({ ad, savedByUser = false, currentUserId = null
       )}
 
       <div className="flex items-center border-t border-border/60 px-1">
-        {isOwner ? (
-          <Link href="/dashboard"
-            className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-primary transition-colors px-3 py-2.5 rounded-xl hover:bg-primary/8 flex-1 justify-center">
-            <MessageCircle className="w-4 h-4" />
-            <span className="hidden sm:inline font-medium">Manage</span>
-          </Link>
-        ) : (
-          <button onClick={openMessage}
-            className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-primary transition-colors px-3 py-2.5 rounded-xl hover:bg-primary/8 flex-1 justify-center">
-            <MessageCircle className="w-4 h-4" />
-            <span className="hidden sm:inline font-medium">Message</span>
-          </button>
-        )}
+        <button onClick={openComment}
+          className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-primary transition-colors px-3 py-2.5 rounded-xl hover:bg-primary/8 flex-1 justify-center">
+          <MessageCircle className="w-4 h-4" />
+          <span className="hidden sm:inline font-medium">Comment</span>
+        </button>
         <div className="flex items-center gap-1.5 text-xs text-muted-foreground px-3 py-2.5 flex-1 justify-center">
           <Eye className="w-4 h-4" />
           <span>{(ad.views || 0).toLocaleString()}</span>
@@ -222,40 +217,44 @@ export default function PostCard({ ad, savedByUser = false, currentUserId = null
         </button>
       </div>
 
-      {msgOpen && (
-        <div className="fixed inset-0 z-[60] bg-black/40 backdrop-blur-sm flex items-end sm:items-center justify-center p-3" onClick={() => !msgLoading && setMsgOpen(false)}>
+      {cmtOpen && (
+        <div className="fixed inset-0 z-[60] bg-black/40 backdrop-blur-sm flex items-end sm:items-center justify-center p-3" onClick={() => !cmtLoading && setCmtOpen(false)}>
           <div className="bg-card rounded-2xl shadow-xl w-full max-w-md p-5 animate-in-up" onClick={e => e.stopPropagation()}>
             <div className="flex items-start justify-between gap-3 mb-3">
               <div>
-                <h3 className="font-bold text-base">Message {posterName.split(' ')[0]}</h3>
-                <p className="text-xs text-muted-foreground line-clamp-1">About: {ad.title}</p>
+                <h3 className="font-bold text-base">Leave a comment</h3>
+                <p className="text-xs text-muted-foreground line-clamp-1">On: {ad.title}</p>
               </div>
-              <button onClick={() => setMsgOpen(false)} disabled={msgLoading}
+              <button onClick={() => setCmtOpen(false)} disabled={cmtLoading}
                 className="p-1.5 rounded-lg hover:bg-muted transition-colors">
                 <X className="w-4 h-4" />
               </button>
             </div>
-            <form onSubmit={sendMessage} className="flex flex-col gap-3">
+            <form onSubmit={sendComment} className="flex flex-col gap-3">
               <textarea
-                value={msgBody}
-                onChange={e => setMsgBody(e.target.value)}
-                placeholder={`Hi, is this still available?`}
+                value={cmtBody}
+                onChange={e => setCmtBody(e.target.value)}
+                placeholder="Share your thoughts or ask a question…"
                 rows={4}
+                maxLength={1000}
                 autoFocus
                 className="w-full text-sm px-3 py-2.5 rounded-xl border border-border bg-background focus:outline-none focus:ring-2 focus:ring-ring resize-none"
                 required
               />
+              <div className="flex items-center justify-between">
+                <span className="text-[11px] text-muted-foreground">{cmtBody.length}/1000 — visible to everyone</span>
+              </div>
               <div className="flex items-center gap-2">
-                <button type="button" onClick={() => setMsgOpen(false)} disabled={msgLoading}
+                <button type="button" onClick={() => setCmtOpen(false)} disabled={cmtLoading}
                   className="flex-1 px-3 py-2 text-sm rounded-xl border border-border hover:bg-muted transition-colors">
                   Cancel
                 </button>
-                <button type="submit" disabled={msgLoading || !msgBody.trim()}
+                <button type="submit" disabled={cmtLoading || !cmtBody.trim()}
                   className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 text-sm font-semibold rounded-xl bg-primary text-primary-foreground hover:opacity-90 transition-opacity disabled:opacity-50">
-                  {msgLoading ? (
+                  {cmtLoading ? (
                     <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
                   ) : (
-                    <><Send className="w-3.5 h-3.5" /> Send</>
+                    <><Send className="w-3.5 h-3.5" /> Post</>
                   )}
                 </button>
               </div>

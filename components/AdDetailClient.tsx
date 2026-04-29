@@ -11,6 +11,7 @@ import { MapPin, Eye, Heart, Share2, Phone, Mail, ChevronLeft, ChevronRight, Bad
 import type { Ad } from '@/lib/supabase/types'
 import { formatPrice, timeAgo, getInitials } from '@/lib/utils'
 import PostCard from '@/components/PostCard'
+import CommentsSection from '@/components/CommentsSection'
 import { toast } from 'sonner'
 import { createClient } from '@/lib/supabase/client'
 
@@ -340,6 +341,8 @@ export default function AdDetailClient({ ad, similar, currentUserId }: Props) {
               <Share2 className="w-4 h-4" /> Share
             </Button>
           </div>
+
+          <CommentsSection adId={ad.id} currentUserId={currentUserId} />
 
           {/* Similar ads */}
           {similar.length > 0 && (

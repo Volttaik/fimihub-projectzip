@@ -10,13 +10,14 @@ export default async function AdDetailPage({ params }: { params: Promise<{ id: s
   const { id } = await params
   const supabase = await createClient()
 
-  const { data: ad, error } = await supabase
+  const { data: adRaw, error } = await supabase
     .from('ads')
     .select('*, profiles!ads_user_id_fkey(full_name, avatar_url, email, phone, location, created_at)')
     .eq('id', id)
     .single()
 
-  if (error || !ad) notFound()
+  if (error || !adRaw) notFound()
+  const ad = adRaw as unknown as Ad
 
   const { data: { user } } = await supabase.auth.getUser()
 
@@ -28,7 +29,7 @@ export default async function AdDetailPage({ params }: { params: Promise<{ id: s
       .insert({ user_id: user.id, ad_id: id } as any)
     // If insert succeeded (no conflict), increment the views counter
     if (!viewErr) {
-      await admin.rpc('increment_ad_views', { ad_id: id })
+      await (admin.rpc as any)('increment_ad_views', { ad_id: id })
     }
   }
 
