@@ -9,7 +9,7 @@ async function getAds(): Promise<Ad[]> {
     const supabase = await createClient()
     const { data, error } = await supabase
       .from('ads')
-      .select('*, profiles(full_name, avatar_url, email)')
+      .select('*, profiles!ads_user_id_fkey(full_name, avatar_url, email)')
       .eq('status', 'active')
       .order('is_boosted', { ascending: false })
       .order('created_at', { ascending: false })

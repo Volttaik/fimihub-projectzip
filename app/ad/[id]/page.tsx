@@ -9,7 +9,7 @@ export default async function AdDetailPage({ params }: { params: Promise<{ id: s
 
   const { data: ad, error } = await supabase
     .from('ads')
-    .select('*, profiles(full_name, avatar_url, email, phone, location, created_at)')
+    .select('*, profiles!ads_user_id_fkey(full_name, avatar_url, email, phone, location, created_at)')
     .eq('id', id)
     .single()
 
@@ -21,7 +21,7 @@ export default async function AdDetailPage({ params }: { params: Promise<{ id: s
   // Get similar ads
   const { data: similar } = await supabase
     .from('ads')
-    .select('*, profiles(full_name)')
+    .select('*, profiles!ads_user_id_fkey(full_name)')
     .eq('category', ad.category)
     .eq('status', 'active')
     .neq('id', id)

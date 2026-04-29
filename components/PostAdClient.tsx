@@ -32,6 +32,8 @@ interface Props {
   userEmail: string
   credits: number
   hasPayoutAccount: boolean
+  freePostsRemaining: number
+  postCostCredits: number
 }
 
 interface UploadFile {
@@ -43,12 +45,16 @@ interface UploadFile {
   error?: string
 }
 
-export default function PostAdClient({ userId, userEmail, credits, hasPayoutAccount }: Props) {
+export default function PostAdClient({ userId, userEmail, credits, hasPayoutAccount, freePostsRemaining, postCostCredits }: Props) {
   const router = useRouter()
   const [step, setStep] = useState(1)
   const [submitted, setSubmitted] = useState(false)
   const [loading, setLoading] = useState(false)
   const [uploads, setUploads] = useState<UploadFile[]>([])
+
+  const isFree = freePostsRemaining > 0
+  const canPayWithCredits = credits >= postCostCredits
+  const canPost = isFree || canPayWithCredits
 
   const [form, setForm] = useState({
     title: '', category: '', description: '', price: '',
@@ -120,6 +126,13 @@ export default function PostAdClient({ userId, userEmail, credits, hasPayoutAcco
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
+
+    if (!canPost) {
+      toast.error(`You've used your ${freePostsRemaining === 0 ? 'free posts' : ''}. You need ${postCostCredits} credits to post another ad.`)
+      router.push('/credits')
+      return
+    }
+
     setLoading(true)
 
     let media: MediaItem[] = []
@@ -129,7 +142,7 @@ export default function PostAdClient({ userId, userEmail, credits, hasPayoutAcco
 
     const tags = form.tags.split(',').map(t => t.trim().toLowerCase()).filter(Boolean)
 
-    const { error } = await supabase.from('ads').insert({
+    const { data: insertedAd, error } = await supabase.from('ads').insert({
       user_id: userId,
       title: form.title,
       description: form.description,
@@ -145,15 +158,35 @@ export default function PostAdClient({ userId, userEmail, credits, hasPayoutAcco
       boost_expires_at: null,
       quantity: form.quantity ? Number(form.quantity) : null,
       accept_payments: form.acceptPayments && hasPayoutAccount,
-    } as any)
+    } as any).select('id').single()
 
-    setLoading(false)
-    if (error) {
+    if (error || !insertedAd) {
+      setLoading(false)
       toast.error('Failed to post ad space. Please try again.')
       return
     }
+
+    if (!isFree) {
+      const newCredits = credits - postCostCredits
+      const { error: creditsError } = await supabase
+        .from('profiles')
+        .update({ credits: newCredits })
+        .eq('id', userId)
+
+      if (!creditsError) {
+        await supabase.from('credit_transactions').insert({
+          user_id: userId,
+          amount: -postCostCredits,
+          type: 'spend',
+          description: 'Posted an ad space',
+          reference: insertedAd.id,
+        } as any)
+      }
+    }
+
+    setLoading(false)
     setSubmitted(true)
-    toast.success('Your ad space is now live!')
+    toast.success(isFree ? 'Your ad space is now live!' : `Ad posted! ${postCostCredits} credits used.`)
   }
 
   if (submitted) {
@@ -174,9 +207,29 @@ export default function PostAdClient({ userId, userEmail, credits, hasPayoutAcco
 
   return (
     <div className="container mx-auto px-4 py-10 max-w-2xl">
-      <div className="mb-8">
+      <div className="mb-6">
         <h1 className="text-2xl font-bold">Post an Ad Space</h1>
         <p className="text-muted-foreground text-sm mt-1">Reach thousands of potential buyers, clients, and renters.</p>
+      </div>
+
+      {/* Pricing banner */}
+      <div className={`rounded-xl p-4 mb-6 border text-sm ${isFree ? 'border-emerald-500/30 bg-emerald-500/5' : canPayWithCredits ? 'border-primary/30 bg-primary/5' : 'border-destructive/30 bg-destructive/5'}`}>
+        {isFree ? (
+          <p>
+            <span className="font-semibold text-emerald-600">Free post!</span>{' '}
+            You have <span className="font-semibold">{freePostsRemaining}</span> free post{freePostsRemaining === 1 ? '' : 's'} remaining. After that, each post costs {postCostCredits} credits.
+          </p>
+        ) : canPayWithCredits ? (
+          <p>
+            You&apos;ve used your 3 free posts. Posting this ad will use{' '}
+            <span className="font-semibold">{postCostCredits} credits</span> (you have {credits}).
+          </p>
+        ) : (
+          <p>
+            You&apos;ve used your 3 free posts and don&apos;t have enough credits ({credits}/{postCostCredits}).{' '}
+            <a href="/credits" className="font-semibold text-primary hover:underline">Buy credits →</a>
+          </p>
+        )}
       </div>
 
       {/* Stepper */}
@@ -374,7 +427,7 @@ export default function PostAdClient({ userId, userEmail, credits, hasPayoutAcco
 
             <div className="flex justify-between">
               <Button type="button" variant="outline" onClick={() => setStep(2)}>Back</Button>
-              <Button type="submit" disabled={loading} className="gap-2">
+              <Button type="submit" disabled={loading || !canPost} className="gap-2">
                 {loading ? <><Loader2 className="w-4 h-4 animate-spin" /> Posting…</> : 'Post Ad Space'}
               </Button>
             </div>
