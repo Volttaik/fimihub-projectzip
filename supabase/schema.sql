@@ -12,6 +12,8 @@ create table if not exists public.profiles (
   date_of_birth date,
   sex text check (sex in ('male','female','other','prefer_not_to_say')),
   location text,
+  bio text,
+  specialisations text[] not null default '{}',
   email_verified boolean not null default false,
   created_at timestamptz not null default now()
 );
