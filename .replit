@@ -38,3 +38,10 @@ externalPort = 80
 [userenv.shared]
 NEXT_PUBLIC_SUPABASE_URL = "https://kjzgegporwuzyovmwnwx.supabase.co"
 NEXT_PUBLIC_SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImtqemdlZ3Bvcnd1enlvdm13bnd4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzc0NDA3NTksImV4cCI6MjA5MzAxNjc1OX0.K92iAP2XLBQQ8jzCUz5ruQTxgfytzjRxr6tFx4d93B8"
+SUPABASE_SERVICE_ROLE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImtqemdlZ3Bvcnd1enlvdm13bnd4Iiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3NzQ0MDc1OSwiZXhwIjoyMDkzMDE2NzU5fQ.rOrVnbmLdjBFmtykQQCltv49VW8upo5PKq38mTDgHzg"
+SUPABASE_JWT_SECRET = "BSHNwmUBjo7iWITzI3OOh++vADViGRqCmVATQ4hDD1BpmJIavGR0/MOyGr4tHXpq+kW6iy/hGmuHReHloPScZA=="
+POSTGRES_URL = "postgres://postgres.kjzgegporwuzyovmwnwx:urRKEKMOJmcuR93X@aws-1-us-east-1.pooler.supabase.com:6543/postgres?sslmode=require&supa=base-pooler.x"
+POSTGRES_HOST = "db.kjzgegporwuzyovmwnwx.supabase.co"
+POSTGRES_USER = "postgres"
+POSTGRES_PASSWORD = "urRKEKMOJmcuR93X"
+POSTGRES_DATABASE = "postgres"

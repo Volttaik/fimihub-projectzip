@@ -86,7 +86,7 @@ export default function LoginPage() {
               <div>
                 <Label htmlFor="email">Email address</Label>
                 <Input id="email" type="email" placeholder="you@email.com" value={email}
-                  onChange={e => setEmail(e.target.value)} className="mt-1.5" required />
+                  onChange={e => setEmail(e.target.value)} className="mt-1.5" autoComplete="email" required />
               </div>
               <div>
                 <div className="flex items-center justify-between mb-1.5">
