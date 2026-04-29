@@ -7,6 +7,7 @@ const nextConfig: NextConfig = {
       { protocol: 'https', hostname: 'images.unsplash.com' },
     ],
   },
+  allowedDevOrigins: ['*.replit.dev', '*.repl.co'],
   experimental: {
     serverActions: { allowedOrigins: ['*'] },
   },
