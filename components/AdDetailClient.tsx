@@ -234,7 +234,7 @@ export default function AdDetailClient({ ad, similar, currentUserId }: Props) {
                 {currentMedia?.type === 'video' ? (
                   <video src={currentMedia.url} controls className="w-full h-full object-contain bg-black" />
                 ) : currentMedia ? (
-                  <Image src={currentMedia.url} alt={ad.title} fill className="object-contain" sizes="(max-width: 768px) 100vw, 700px" />
+                  <Image src={currentMedia.url} alt={ad.title} fill priority className="object-contain" sizes="(max-width: 768px) 100vw, 700px" />
                 ) : null}
 
                 {media.length > 1 && (
@@ -419,21 +419,32 @@ export default function AdDetailClient({ ad, similar, currentUserId }: Props) {
                 </div>
               )}
 
-              {canOrder && (
-                <Button onClick={startPlaceOrder} className="w-full gap-2">
-                  <ClipboardList className="w-4 h-4" /> Place Order
-                </Button>
+              {ad.user_id === currentUserId ? (
+                <>
+                  <div className="bg-primary/10 border border-primary/20 rounded-xl px-3 py-2.5 text-xs text-primary text-center font-medium">
+                    This is your ad — buyers see Place Order, Message and Custom Request here.
+                  </div>
+                  <Link href="/dashboard">
+                    <Button variant="outline" className="w-full gap-2">
+                      <ClipboardList className="w-4 h-4" /> Manage in dashboard
+                    </Button>
+                  </Link>
+                </>
+              ) : (
+                <>
+                  {canOrder && (
+                    <Button onClick={startPlaceOrder} className="w-full gap-2">
+                      <ClipboardList className="w-4 h-4" /> Place Order
+                    </Button>
+                  )}
+                  <Button onClick={startMessage} variant="outline" className="w-full gap-2">
+                    <MessageCircle className="w-4 h-4" /> Message Seller
+                  </Button>
+                  <Button onClick={startCustomRequest} variant="outline" className="w-full gap-2">
+                    <MessageSquarePlus className="w-4 h-4" /> Custom Request
+                  </Button>
+                </>
               )}
-
-              {ad.user_id !== currentUserId && (
-                <Button onClick={startMessage} variant="outline" className="w-full gap-2">
-                  <MessageCircle className="w-4 h-4" /> Message Seller
-                </Button>
-              )}
-
-              <Button onClick={startCustomRequest} variant="outline" className="w-full gap-2">
-                <MessageSquarePlus className="w-4 h-4" /> Custom Request
-              </Button>
 
               <div className="border-t border-border/60 pt-3 mt-1 space-y-2">
                 <p className="text-[11px] uppercase tracking-wide text-muted-foreground/70 font-semibold">Direct contact</p>
