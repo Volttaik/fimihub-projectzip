@@ -2,11 +2,12 @@
 import { useState } from 'react'
 import Link from 'next/link'
 import Image from 'next/image'
+import { useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
 import { Label } from '@/components/ui/label'
-import { MapPin, Eye, Heart, Share2, Phone, Mail, ChevronLeft, ChevronRight, BadgeCheck, Zap, Calendar, ArrowLeft, AlertTriangle, ShoppingCart, Package, Loader2, MessageSquarePlus, CheckCircle2, Minus, Plus } from 'lucide-react'
+import { MapPin, Eye, Heart, Share2, Phone, Mail, ChevronLeft, ChevronRight, BadgeCheck, Zap, Calendar, ArrowLeft, ShoppingCart, Package, Loader2, MessageSquarePlus, CheckCircle2, Minus, Plus, ClipboardList, MessageCircle, Images, PlayCircle, Tag } from 'lucide-react'
 import type { Ad } from '@/lib/supabase/types'
 import { formatPrice, timeAgo, getInitials } from '@/lib/utils'
 import PostCard from '@/components/PostCard'
@@ -23,9 +24,11 @@ const categoryColors: Record<string, string> = {
 interface Props {
   ad: Ad
   similar: Ad[]
+  currentUserId: string | null
 }
 
-export default function AdDetailClient({ ad, similar }: Props) {
+export default function AdDetailClient({ ad, similar, currentUserId }: Props) {
+  const router = useRouter()
   const [mediaIdx, setMediaIdx] = useState(0)
   const [saved, setSaved] = useState(false)
   const [showPhone, setShowPhone] = useState(false)
@@ -42,6 +45,18 @@ export default function AdDetailClient({ ad, similar }: Props) {
   const [checkoutLoading, setCheckoutLoading] = useState(false)
   const [showCheckout, setShowCheckout] = useState(false)
 
+  // Place order state
+  const [orderOpen, setOrderOpen] = useState(false)
+  const [orderQty, setOrderQty] = useState(1)
+  const [orderNote, setOrderNote] = useState('')
+  const [orderPhone, setOrderPhone] = useState('')
+  const [orderLoading, setOrderLoading] = useState(false)
+
+  // Message seller
+  const [msgOpen, setMsgOpen] = useState(false)
+  const [msgBody, setMsgBody] = useState('')
+  const [msgLoading, setMsgLoading] = useState(false)
+
   // Custom request state
   const [reqOpen, setReqOpen] = useState(false)
   const [reqName, setReqName] = useState('')
@@ -55,7 +70,79 @@ export default function AdDetailClient({ ad, similar }: Props) {
 
   const stockLeft = typeof ad.quantity === 'number' ? ad.quantity : null
   const canBuy = ad.accept_payments && !!ad.price && (stockLeft === null || stockLeft > 0)
+  const canOrder = ad.user_id !== currentUserId && (stockLeft === null || stockLeft > 0)
   const maxQty = stockLeft ?? 99
+
+  const requireLogin = (action: string) => {
+    if (currentUserId) return true
+    toast.error(`Sign in to ${action}`)
+    router.push(`/login?redirect=/ad/${ad.id}`)
+    return false
+  }
+
+  const startCheckout = () => {
+    if (!requireLogin('buy this item')) return
+    setShowCheckout(true)
+  }
+
+  const startPlaceOrder = () => {
+    if (!requireLogin('place an order')) return
+    setOrderOpen(true)
+  }
+
+  const startMessage = () => {
+    if (!requireLogin('message the seller')) return
+    setMsgOpen(true)
+  }
+
+  const startCustomRequest = () => {
+    if (!requireLogin('send a request')) return
+    setReqOpen(true)
+  }
+
+  const handlePlaceOrder = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setOrderLoading(true)
+    try {
+      const res = await fetch('/api/orders/place', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          ad_id: ad.id,
+          quantity: orderQty,
+          note: orderNote,
+          buyer_phone: orderPhone,
+        }),
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error || 'Could not place order')
+      toast.success('Order placed — opening chat with seller')
+      router.push(`/inbox/${data.conversation_id}`)
+    } catch (err: any) {
+      toast.error(err.message)
+      setOrderLoading(false)
+    }
+  }
+
+  const handleSendMessage = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!msgBody.trim()) return
+    setMsgLoading(true)
+    try {
+      const res = await fetch('/api/conversations', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ad_id: ad.id, body: msgBody.trim() }),
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error || 'Could not send message')
+      toast.success('Message sent')
+      router.push(`/inbox/${data.conversation_id}`)
+    } catch (err: any) {
+      toast.error(err.message)
+      setMsgLoading(false)
+    }
+  }
 
   const handleCheckout = async () => {
     if (!buyerName || !buyerEmail) { toast.error('Please fill in your details'); return }
@@ -112,7 +199,7 @@ export default function AdDetailClient({ ad, similar }: Props) {
 
   const handleSave = async () => {
     const { data: { user } } = await supabase.auth.getUser()
-    if (!user) { toast.error('Sign in to save ads'); return }
+    if (!user) { requireLogin('save this ad'); return }
     if (saved) {
       await supabase.from('saves').delete().eq('user_id', user.id).eq('ad_id', ad.id)
       setSaved(false)
@@ -282,8 +369,9 @@ export default function AdDetailClient({ ad, similar }: Props) {
             </div>
 
             <div className="flex flex-col gap-3">
+              {/* Primary actions */}
               {canBuy && !showCheckout && (
-                <Button onClick={() => setShowCheckout(true)} className="w-full gap-2 bg-emerald-600 hover:bg-emerald-700">
+                <Button onClick={startCheckout} className="w-full gap-2 bg-emerald-600 hover:bg-emerald-700">
                   <ShoppingCart className="w-4 h-4" /> Buy Now
                 </Button>
               )}
@@ -331,39 +419,39 @@ export default function AdDetailClient({ ad, similar }: Props) {
                 </div>
               )}
 
-              {ad.contact_phone && (
-                <Button onClick={() => setShowPhone(true)} variant={showPhone ? 'outline' : 'default'} className="w-full gap-2">
-                  <Phone className="w-4 h-4" />
-                  {showPhone ? ad.contact_phone : 'Show Phone Number'}
+              {canOrder && (
+                <Button onClick={startPlaceOrder} className="w-full gap-2">
+                  <ClipboardList className="w-4 h-4" /> Place Order
                 </Button>
               )}
-              <Button onClick={() => setShowEmail(true)} variant={showEmail ? 'outline' : 'outline'} className="w-full gap-2">
-                <Mail className="w-4 h-4" />
-                {showEmail ? (
-                  <a href={`mailto:${ad.contact_email}`} className="text-primary hover:underline truncate">
-                    {ad.contact_email}
-                  </a>
-                ) : 'Show Email'}
+
+              {ad.user_id !== currentUserId && (
+                <Button onClick={startMessage} variant="outline" className="w-full gap-2">
+                  <MessageCircle className="w-4 h-4" /> Message Seller
+                </Button>
+              )}
+
+              <Button onClick={startCustomRequest} variant="outline" className="w-full gap-2">
+                <MessageSquarePlus className="w-4 h-4" /> Custom Request
               </Button>
-              {showEmail && (
-                <a href={`mailto:${ad.contact_email}?subject=Re: ${encodeURIComponent(ad.title)}`}>
-                  <Button className="w-full gap-2">
-                    <Mail className="w-4 h-4" /> Send Email
+
+              <div className="border-t border-border/60 pt-3 mt-1 space-y-2">
+                <p className="text-[11px] uppercase tracking-wide text-muted-foreground/70 font-semibold">Direct contact</p>
+                {ad.contact_phone && (
+                  <Button onClick={() => setShowPhone(true)} variant="outline" size="sm" className="w-full gap-2">
+                    <Phone className="w-4 h-4" />
+                    {showPhone ? ad.contact_phone : 'Show Phone'}
                   </Button>
-                </a>
-              )}
-
-              <Button onClick={() => setReqOpen(true)} variant="outline" className="w-full gap-2">
-                <MessageSquarePlus className="w-4 h-4" /> Send a custom request
-              </Button>
-            </div>
-
-            <div className="mt-5 pt-5 border-t border-border text-xs text-muted-foreground space-y-1">
-              <p className="flex items-start gap-2"><AlertTriangle className="w-4 h-4 mt-0.5 shrink-0 text-amber-500" /> Always meet in a safe, public place</p>
-              <p className="flex items-start gap-2"><AlertTriangle className="w-4 h-4 mt-0.5 shrink-0 text-amber-500" /> Never send money in advance</p>
-              {!ad.accept_payments && (
-                <p className="flex items-start gap-2"><AlertTriangle className="w-4 h-4 mt-0.5 shrink-0 text-amber-500" /> Use Buy Now when available — it&apos;s the safest option</p>
-              )}
+                )}
+                <Button onClick={() => setShowEmail(true)} variant="outline" size="sm" className="w-full gap-2">
+                  <Mail className="w-4 h-4" />
+                  {showEmail ? (
+                    <a href={`mailto:${ad.contact_email}`} className="text-primary hover:underline truncate">
+                      {ad.contact_email}
+                    </a>
+                  ) : 'Show Email'}
+                </Button>
+              </div>
             </div>
           </div>
         </div>
@@ -425,6 +513,103 @@ export default function AdDetailClient({ ad, similar }: Props) {
                 </div>
               </form>
             )}
+          </div>
+        </div>
+      )}
+
+      {/* Place Order modal */}
+      {orderOpen && (
+        <div className="fixed inset-0 z-50 bg-black/60 flex items-center justify-center p-4" onClick={() => !orderLoading && setOrderOpen(false)}>
+          <div className="bg-background rounded-2xl p-6 max-w-md w-full shadow-2xl" onClick={e => e.stopPropagation()}>
+            <form onSubmit={handlePlaceOrder} className="space-y-4">
+              <div>
+                <h3 className="font-semibold text-lg flex items-center gap-2"><ClipboardList className="w-5 h-5 text-primary" /> Place an order</h3>
+                <p className="text-xs text-muted-foreground mt-0.5">Send {posterName} an order request. They&apos;ll confirm pricing and delivery in the chat.</p>
+              </div>
+
+              <div className="rounded-xl border border-border/60 bg-muted/30 p-3 flex items-center gap-3">
+                {currentMedia?.type === 'image' && (
+                  <Image src={currentMedia.url} alt={ad.title} width={56} height={56} className="rounded-lg object-cover w-14 h-14" />
+                )}
+                <div className="min-w-0 flex-1">
+                  <p className="text-sm font-medium truncate">{ad.title}</p>
+                  {ad.price ? (
+                    <p className="text-sm text-primary font-semibold">{formatPrice(ad.price, ad.price_type)}</p>
+                  ) : (
+                    <p className="text-xs text-muted-foreground">Price on request</p>
+                  )}
+                </div>
+              </div>
+
+              <div>
+                <Label className="text-xs">Quantity</Label>
+                <div className="flex items-center gap-2 mt-1.5">
+                  <button type="button" onClick={() => setOrderQty(q => Math.max(1, q - 1))}
+                    className="w-9 h-9 rounded-lg border border-border flex items-center justify-center hover:bg-muted">
+                    <Minus className="w-4 h-4" />
+                  </button>
+                  <span className="font-semibold w-12 text-center">{orderQty}</span>
+                  <button type="button" onClick={() => setOrderQty(q => Math.min(maxQty, q + 1))}
+                    className="w-9 h-9 rounded-lg border border-border flex items-center justify-center hover:bg-muted">
+                    <Plus className="w-4 h-4" />
+                  </button>
+                  {stockLeft !== null && (
+                    <span className="text-xs text-muted-foreground ml-2">{stockLeft} available</span>
+                  )}
+                </div>
+              </div>
+
+              <div>
+                <Label htmlFor="op" className="text-xs">Phone (optional)</Label>
+                <Input id="op" type="tel" value={orderPhone} onChange={e => setOrderPhone(e.target.value)}
+                  placeholder="So the seller can reach you" className="mt-1" />
+              </div>
+
+              <div>
+                <Label htmlFor="on" className="text-xs">Note to seller (optional)</Label>
+                <Textarea id="on" value={orderNote} onChange={e => setOrderNote(e.target.value)}
+                  placeholder="Delivery address, color/variant, timing, etc." className="mt-1 min-h-[90px]" />
+              </div>
+
+              {ad.price && (
+                <div className="flex items-center justify-between text-sm pt-1 border-t border-border/60 pt-3">
+                  <span className="text-muted-foreground">Estimated total</span>
+                  <span className="font-bold text-base">{formatPrice(ad.price * orderQty, 'fixed')}</span>
+                </div>
+              )}
+
+              <div className="flex gap-2 pt-1">
+                <Button type="button" variant="outline" onClick={() => setOrderOpen(false)} disabled={orderLoading} className="flex-1">Cancel</Button>
+                <Button type="submit" disabled={orderLoading} className="flex-1 gap-2">
+                  {orderLoading ? <><Loader2 className="w-4 h-4 animate-spin" /> Placing</> : <><ClipboardList className="w-4 h-4" /> Place order</>}
+                </Button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Message Seller modal */}
+      {msgOpen && (
+        <div className="fixed inset-0 z-50 bg-black/60 flex items-center justify-center p-4" onClick={() => !msgLoading && setMsgOpen(false)}>
+          <div className="bg-background rounded-2xl p-6 max-w-md w-full shadow-2xl" onClick={e => e.stopPropagation()}>
+            <form onSubmit={handleSendMessage} className="space-y-4">
+              <div>
+                <h3 className="font-semibold text-lg flex items-center gap-2"><MessageCircle className="w-5 h-5 text-primary" /> Message {posterName}</h3>
+                <p className="text-xs text-muted-foreground mt-0.5">Start a chat about &ldquo;{ad.title}&rdquo;. Replies show up in your inbox.</p>
+              </div>
+              <div>
+                <Label htmlFor="mb" className="text-xs">Your message *</Label>
+                <Textarea id="mb" value={msgBody} onChange={e => setMsgBody(e.target.value)}
+                  placeholder="Hi, is this still available?" className="mt-1 min-h-[110px]" autoFocus />
+              </div>
+              <div className="flex gap-2 pt-1">
+                <Button type="button" variant="outline" onClick={() => setMsgOpen(false)} disabled={msgLoading} className="flex-1">Cancel</Button>
+                <Button type="submit" disabled={msgLoading || !msgBody.trim()} className="flex-1 gap-2">
+                  {msgLoading ? <><Loader2 className="w-4 h-4 animate-spin" /> Sending</> : <><MessageCircle className="w-4 h-4" /> Send</>}
+                </Button>
+              </div>
+            </form>
           </div>
         </div>
       )}

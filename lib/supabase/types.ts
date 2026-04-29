@@ -32,8 +32,8 @@ export interface Order {
   amount_kobo: number
   seller_amount_kobo: number
   platform_fee_kobo: number
-  paystack_reference: string
-  status: 'pending' | 'paid' | 'failed' | 'cancelled'
+  paystack_reference: string | null
+  status: 'placed' | 'pending' | 'paid' | 'failed' | 'cancelled' | 'accepted' | 'declined' | 'fulfilled'
   ad_title: string | null
   created_at: string
   paid_at: string | null
@@ -43,6 +43,7 @@ export interface CustomRequest {
   id: string
   ad_id: string
   seller_id: string
+  buyer_id: string | null
   buyer_name: string
   buyer_email: string
   buyer_phone: string | null
@@ -50,6 +51,33 @@ export interface CustomRequest {
   budget: number | null
   quantity: number | null
   status: 'open' | 'responded' | 'closed'
+  created_at: string
+}
+
+export type ConversationKind = 'inquiry' | 'request' | 'order'
+
+export interface Conversation {
+  id: string
+  ad_id: string | null
+  buyer_id: string
+  seller_id: string
+  kind: ConversationKind
+  reference_id: string | null
+  subject: string | null
+  last_message_at: string
+  created_at: string
+  ad?: { id: string; title: string; media: MediaItem[] } | null
+  buyer?: { id: string; full_name: string | null; email: string; avatar_url: string | null } | null
+  seller?: { id: string; full_name: string | null; email: string; avatar_url: string | null } | null
+  last_message?: Message | null
+}
+
+export interface Message {
+  id: string
+  conversation_id: string
+  sender_id: string
+  body: string
+  read_at: string | null
   created_at: string
 }
 

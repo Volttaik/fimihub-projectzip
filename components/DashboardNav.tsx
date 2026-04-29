@@ -6,8 +6,8 @@ import { Button } from '@/components/ui/button'
 
 const ITEMS = [
   { href: '/dashboard',    label: 'Overview',  icon: LayoutDashboard },
+  { href: '/inbox',        label: 'Inbox',     icon: Inbox },
   { href: '/revenue',      label: 'Revenue',   icon: Wallet },
-  { href: '/requests',     label: 'Requests',  icon: Inbox },
   { href: '/credits',      label: 'Credits',   icon: Coins },
   { href: '/bank-account', label: 'Payouts',   icon: Landmark },
 ]

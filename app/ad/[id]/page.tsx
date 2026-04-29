@@ -1,7 +1,10 @@
 import { notFound } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
+import { createAdminClient } from '@/lib/supabase/admin'
 import AdDetailClient from '@/components/AdDetailClient'
 import type { Ad } from '@/lib/supabase/types'
+
+export const dynamic = 'force-dynamic'
 
 export default async function AdDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
@@ -15,8 +18,19 @@ export default async function AdDetailPage({ params }: { params: Promise<{ id: s
 
   if (error || !ad) notFound()
 
-  // Increment views
-  await supabase.rpc('increment_ad_views', { ad_id: id })
+  const { data: { user } } = await supabase.auth.getUser()
+
+  // Count a unique view per logged-in viewer (skip the ad owner). Anonymous refreshes don't count.
+  if (user && user.id !== ad.user_id) {
+    const admin = createAdminClient()
+    const { error: viewErr } = await admin
+      .from('ad_views')
+      .insert({ user_id: user.id, ad_id: id } as any)
+    // If insert succeeded (no conflict), increment the views counter
+    if (!viewErr) {
+      await admin.rpc('increment_ad_views', { ad_id: id })
+    }
+  }
 
   // Get similar ads
   const { data: similar } = await supabase
@@ -27,5 +41,11 @@ export default async function AdDetailPage({ params }: { params: Promise<{ id: s
     .neq('id', id)
     .limit(4)
 
-  return <AdDetailClient ad={ad as Ad} similar={(similar || []) as Ad[]} />
+  return (
+    <AdDetailClient
+      ad={ad as Ad}
+      similar={(similar || []) as Ad[]}
+      currentUserId={user?.id ?? null}
+    />
+  )
 }
