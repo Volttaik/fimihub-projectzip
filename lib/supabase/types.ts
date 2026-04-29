@@ -35,6 +35,10 @@ export interface Order {
   paystack_reference: string | null
   status: 'placed' | 'pending' | 'paid' | 'failed' | 'cancelled' | 'accepted' | 'declined' | 'fulfilled'
   ad_title: string | null
+  shipping_address: string | null
+  shipping_state: string | null
+  shipping_city: string | null
+  delivery_notes: string | null
   created_at: string
   paid_at: string | null
 }
@@ -86,6 +90,7 @@ export interface Ad {
   user_id: string
   quantity: number | null
   accept_payments: boolean
+  requires_shipping: boolean
   title: string
   description: string
   category: Category

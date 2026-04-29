@@ -24,6 +24,15 @@ Next.js 15 marketplace app for Nigerian users to post and discover ad spaces (pr
 - Ad insert uses RLS (`auth.uid() = user_id`) and writes status='active' immediately.
 - Credit deduction on paid posts is done client-side after the insert succeeds, with a matching `credit_transactions` row.
 
+## Owner-side editing, fulfillment toggle, profile picture (2026-04-29)
+- Edit ad: `app/ad/[id]/edit/page.tsx` (server, ownership-checked) + `components/EditAdClient.tsx` (single-page form). Edit buttons added to `components/DashboardClient.tsx` (per-ad row) and the owner sidebar in `components/AdDetailClient.tsx`.
+- Fulfillment mode toggle in EditAdClient: seller picks **Payment** (Buy Now → Paystack) **OR** **Order** (Place Order → inbox chat) — they're mutually exclusive on the buyer side now (`canOrder` requires `!ad.accept_payments`).
+- Shipping toggle: when Payment mode is on, seller can mark **Requires shipping** (`ads.requires_shipping`). Checkout then asks the buyer for street address, city, state, and delivery notes; otherwise it skips that section.
+- Two-step checkout in `AdDetailClient`: Step 1 (contact + shipping if needed), **Next →**, Step 2 (review + Pay with Paystack).
+- Post-payment notifications in `app/api/paystack/webhook/route.ts`: after `charge.success` for an order, the webhook now (a) calls `sendOrderEmails` so buyer gets a confirmation Gmail and seller gets a sale Gmail, and (b) opens an `order` `conversations` row + opening message so both parties have an inbox thread (idempotent via `reference_id` lookup).
+- Profile picture: `components/AvatarUploader.tsx` — clickable avatar circle that uploads to the new `avatars` storage bucket (path `<user_id>/<uuid>.<ext>`) and updates `profiles.avatar_url`. Mounted in `DashboardClient` header.
+- DB migration: `supabase/migrations/2026-04-29-fulfillment-and-shipping.sql` — adds `ads.requires_shipping`, `orders.shipping_address|shipping_state|shipping_city|delivery_notes`, plus the `avatars` storage bucket and per-user RLS policies. Must be run in Supabase SQL editor before these features work in prod.
+
 ## Views, orders, inbox
 - Views are unique per logged-in user via `ad_views(user_id, ad_id)` (unique constraint). Owner views and anonymous refreshes don't count. Tracked in `app/ad/[id]/page.tsx` using the admin client + `increment_ad_views` rpc.
 - Buy Now (paid checkout via Paystack) and Place Order (request-style, no upfront payment) are separate buttons. Both require login; anon users get redirected to `/login?redirect=/ad/{id}`.

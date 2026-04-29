@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
 import { Label } from '@/components/ui/label'
-import { MapPin, Eye, Heart, Phone, Mail, ChevronLeft, ChevronRight, BadgeCheck, Zap, Calendar, ArrowLeft, ShoppingCart, Package, Loader2, MessageSquarePlus, CheckCircle2, Minus, Plus, ClipboardList, MessageCircle, Images, PlayCircle, Tag } from 'lucide-react'
+import { MapPin, Eye, Heart, Phone, Mail, ChevronLeft, ChevronRight, BadgeCheck, Zap, Calendar, ArrowLeft, ShoppingCart, Package, Loader2, MessageSquarePlus, CheckCircle2, Minus, Plus, ClipboardList, MessageCircle, Images, PlayCircle, Tag, Edit2, Truck } from 'lucide-react'
 import type { Ad } from '@/lib/supabase/types'
 import { formatPrice, timeAgo, getInitials } from '@/lib/utils'
 import PostCard from '@/components/PostCard'
@@ -44,8 +44,13 @@ export default function AdDetailClient({ ad, similar, currentUserId }: Props) {
   const [buyerName, setBuyerName] = useState('')
   const [buyerEmail, setBuyerEmail] = useState('')
   const [buyerPhone, setBuyerPhone] = useState('')
+  const [shipAddress, setShipAddress] = useState('')
+  const [shipCity, setShipCity] = useState('')
+  const [shipState, setShipState] = useState('')
+  const [deliveryNotes, setDeliveryNotes] = useState('')
   const [checkoutLoading, setCheckoutLoading] = useState(false)
   const [showCheckout, setShowCheckout] = useState(false)
+  const [checkoutStep, setCheckoutStep] = useState<1 | 2>(1)
 
   // Place order state
   const [orderOpen, setOrderOpen] = useState(false)
@@ -72,8 +77,9 @@ export default function AdDetailClient({ ad, similar, currentUserId }: Props) {
 
   const stockLeft = typeof ad.quantity === 'number' ? ad.quantity : null
   const canBuy = ad.accept_payments && !!ad.price && (stockLeft === null || stockLeft > 0)
-  const canOrder = ad.user_id !== currentUserId && (stockLeft === null || stockLeft > 0)
+  const canOrder = !ad.accept_payments && ad.user_id !== currentUserId && (stockLeft === null || stockLeft > 0)
   const maxQty = stockLeft ?? 99
+  const needsShipping = !!ad.requires_shipping
 
   const requireLogin = (action: string) => {
     if (currentUserId) return true
@@ -147,7 +153,14 @@ export default function AdDetailClient({ ad, similar, currentUserId }: Props) {
   }
 
   const handleCheckout = async () => {
-    if (!buyerName || !buyerEmail) { toast.error('Please fill in your details'); return }
+    if (!buyerName || !buyerEmail || !buyerPhone) {
+      toast.error('Please fill in your name, email, and phone')
+      return
+    }
+    if (needsShipping && (!shipAddress || !shipCity || !shipState)) {
+      toast.error('Please add your delivery address')
+      return
+    }
     setCheckoutLoading(true)
     try {
       const res = await fetch('/api/orders/checkout', {
@@ -159,6 +172,10 @@ export default function AdDetailClient({ ad, similar, currentUserId }: Props) {
           buyer_name: buyerName,
           buyer_email: buyerEmail,
           buyer_phone: buyerPhone,
+          shipping_address: needsShipping ? shipAddress : null,
+          shipping_city: needsShipping ? shipCity : null,
+          shipping_state: needsShipping ? shipState : null,
+          delivery_notes: needsShipping ? deliveryNotes : null,
         }),
       })
       const data = await res.json()
@@ -378,53 +395,137 @@ export default function AdDetailClient({ ad, similar, currentUserId }: Props) {
               )}
               {showCheckout && canBuy && (
                 <div className="rounded-xl border border-emerald-200 bg-emerald-50/40 p-4 space-y-3">
-                  <p className="text-sm font-semibold flex items-center gap-2"><ShoppingCart className="w-4 h-4" /> Secure checkout</p>
-                  {stockLeft !== null && stockLeft > 1 && (
-                    <div>
-                      <Label className="text-xs">Quantity</Label>
-                      <div className="flex items-center gap-2 mt-1.5">
-                        <button type="button" onClick={() => setQty(q => Math.max(1, q - 1))}
-                          className="w-8 h-8 rounded-lg border border-border flex items-center justify-center hover:bg-muted">
-                          <Minus className="w-3.5 h-3.5" />
-                        </button>
-                        <span className="font-semibold w-10 text-center">{qty}</span>
-                        <button type="button" onClick={() => setQty(q => Math.min(maxQty, q + 1))}
-                          className="w-8 h-8 rounded-lg border border-border flex items-center justify-center hover:bg-muted">
-                          <Plus className="w-3.5 h-3.5" />
-                        </button>
+                  <div className="flex items-center justify-between">
+                    <p className="text-sm font-semibold flex items-center gap-2">
+                      <ShoppingCart className="w-4 h-4" /> Secure checkout
+                    </p>
+                    <span className="text-[11px] font-semibold text-muted-foreground">
+                      Step {checkoutStep} of 2
+                    </span>
+                  </div>
+
+                  {checkoutStep === 1 && (
+                    <>
+                      {stockLeft !== null && stockLeft > 1 && (
+                        <div>
+                          <Label className="text-xs">Quantity</Label>
+                          <div className="flex items-center gap-2 mt-1.5">
+                            <button type="button" onClick={() => setQty(q => Math.max(1, q - 1))}
+                              className="w-8 h-8 rounded-lg border border-border flex items-center justify-center hover:bg-muted">
+                              <Minus className="w-3.5 h-3.5" />
+                            </button>
+                            <span className="font-semibold w-10 text-center">{qty}</span>
+                            <button type="button" onClick={() => setQty(q => Math.min(maxQty, q + 1))}
+                              className="w-8 h-8 rounded-lg border border-border flex items-center justify-center hover:bg-muted">
+                              <Plus className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
+                        </div>
+                      )}
+                      <div>
+                        <Label htmlFor="bn" className="text-xs">Your name *</Label>
+                        <Input id="bn" value={buyerName} onChange={e => setBuyerName(e.target.value)} className="mt-1" />
                       </div>
-                    </div>
+                      <div>
+                        <Label htmlFor="be" className="text-xs">Email (Gmail) *</Label>
+                        <Input id="be" type="email" placeholder="you@gmail.com" value={buyerEmail} onChange={e => setBuyerEmail(e.target.value)} className="mt-1" />
+                      </div>
+                      <div>
+                        <Label htmlFor="bp" className="text-xs">Phone *</Label>
+                        <Input id="bp" type="tel" placeholder="+234 800 000 0000" value={buyerPhone} onChange={e => setBuyerPhone(e.target.value)} className="mt-1" />
+                      </div>
+
+                      {needsShipping ? (
+                        <>
+                          <div className="flex items-center gap-2 text-xs font-medium text-emerald-700 pt-1">
+                            <Truck className="w-3.5 h-3.5" /> Delivery address
+                          </div>
+                          <div>
+                            <Label htmlFor="sa" className="text-xs">Street address *</Label>
+                            <Input id="sa" placeholder="House number, street, area" value={shipAddress} onChange={e => setShipAddress(e.target.value)} className="mt-1" />
+                          </div>
+                          <div className="grid grid-cols-2 gap-2">
+                            <div>
+                              <Label htmlFor="sc" className="text-xs">City *</Label>
+                              <Input id="sc" value={shipCity} onChange={e => setShipCity(e.target.value)} className="mt-1" />
+                            </div>
+                            <div>
+                              <Label htmlFor="sst" className="text-xs">State *</Label>
+                              <Input id="sst" value={shipState} onChange={e => setShipState(e.target.value)} className="mt-1" />
+                            </div>
+                          </div>
+                          <div>
+                            <Label htmlFor="dn" className="text-xs">Delivery notes</Label>
+                            <Textarea id="dn" placeholder="Landmarks, gate code, preferred time…"
+                              value={deliveryNotes} onChange={e => setDeliveryNotes(e.target.value)}
+                              className="mt-1 min-h-[60px]" />
+                          </div>
+                        </>
+                      ) : (
+                        <p className="text-[11px] text-muted-foreground bg-muted/50 rounded-md p-2">
+                          No shipping needed for this item — seller will reach out with collection or access details after payment.
+                        </p>
+                      )}
+
+                      <div className="flex gap-2 pt-1">
+                        <button type="button" onClick={() => setShowCheckout(false)} className="flex-1 text-xs text-muted-foreground hover:underline">
+                          Cancel
+                        </button>
+                        <Button
+                          type="button"
+                          onClick={() => {
+                            if (!buyerName || !buyerEmail || !buyerPhone) { toast.error('Fill in your name, email and phone'); return }
+                            if (needsShipping && (!shipAddress || !shipCity || !shipState)) { toast.error('Add your delivery address'); return }
+                            setCheckoutStep(2)
+                          }}
+                          className="flex-1 bg-emerald-600 hover:bg-emerald-700"
+                        >
+                          Next →
+                        </Button>
+                      </div>
+                    </>
                   )}
-                  <div>
-                    <Label htmlFor="bn" className="text-xs">Your name *</Label>
-                    <Input id="bn" value={buyerName} onChange={e => setBuyerName(e.target.value)} className="mt-1" />
-                  </div>
-                  <div>
-                    <Label htmlFor="be" className="text-xs">Email *</Label>
-                    <Input id="be" type="email" value={buyerEmail} onChange={e => setBuyerEmail(e.target.value)} className="mt-1" />
-                  </div>
-                  <div>
-                    <Label htmlFor="bp" className="text-xs">Phone</Label>
-                    <Input id="bp" type="tel" value={buyerPhone} onChange={e => setBuyerPhone(e.target.value)} className="mt-1" />
-                  </div>
-                  <div className="flex items-center justify-between text-sm pt-1">
-                    <span className="text-muted-foreground">Total</span>
-                    <span className="font-bold text-base">{formatPrice((ad.price || 0) * qty, 'fixed')}</span>
-                  </div>
-                  <Button onClick={handleCheckout} disabled={checkoutLoading} className="w-full gap-2 bg-emerald-600 hover:bg-emerald-700">
-                    {checkoutLoading ? <><Loader2 className="w-4 h-4 animate-spin" /> Redirecting…</> : <>Pay with Paystack</>}
-                  </Button>
-                  <button type="button" onClick={() => setShowCheckout(false)} className="text-xs text-muted-foreground w-full text-center hover:underline">
-                    Cancel
-                  </button>
+
+                  {checkoutStep === 2 && (
+                    <>
+                      <div className="rounded-lg border border-emerald-100 bg-white/60 p-3 space-y-1.5 text-xs">
+                        <div className="flex justify-between"><span className="text-muted-foreground">Item</span><span className="font-medium truncate max-w-[160px] text-right">{ad.title}</span></div>
+                        <div className="flex justify-between"><span className="text-muted-foreground">Quantity</span><span className="font-medium">{qty}</span></div>
+                        <div className="flex justify-between"><span className="text-muted-foreground">Buyer</span><span className="font-medium">{buyerName}</span></div>
+                        <div className="flex justify-between"><span className="text-muted-foreground">Email</span><span className="font-medium truncate max-w-[160px] text-right">{buyerEmail}</span></div>
+                        <div className="flex justify-between"><span className="text-muted-foreground">Phone</span><span className="font-medium">{buyerPhone}</span></div>
+                        {needsShipping && (
+                          <div className="pt-1 border-t border-emerald-100">
+                            <span className="text-muted-foreground">Deliver to</span>
+                            <p className="font-medium">{shipAddress}, {shipCity}, {shipState}</p>
+                          </div>
+                        )}
+                      </div>
+                      <div className="flex items-center justify-between text-sm pt-1">
+                        <span className="text-muted-foreground">Total</span>
+                        <span className="font-bold text-base">{formatPrice((ad.price || 0) * qty, 'fixed')}</span>
+                      </div>
+                      <Button onClick={handleCheckout} disabled={checkoutLoading} className="w-full gap-2 bg-emerald-600 hover:bg-emerald-700">
+                        {checkoutLoading ? <><Loader2 className="w-4 h-4 animate-spin" /> Redirecting…</> : <>Pay with Paystack</>}
+                      </Button>
+                      <button type="button" onClick={() => setCheckoutStep(1)} className="text-xs text-muted-foreground w-full text-center hover:underline">
+                        ← Back to details
+                      </button>
+                    </>
+                  )}
                 </div>
               )}
 
               {ad.user_id === currentUserId ? (
                 <>
                   <div className="bg-primary/10 border border-primary/20 rounded-xl px-3 py-2.5 text-xs text-primary text-center font-medium">
-                    This is your ad — buyers see Place Order, Message and Custom Request here.
+                    This is your ad — buyers see {ad.accept_payments ? 'a Buy Now button' : 'a Place Order button'} here.
                   </div>
+                  <Link href={`/ad/${ad.id}/edit`}>
+                    <Button className="w-full gap-2">
+                      <Edit2 className="w-4 h-4" /> Edit ad
+                    </Button>
+                  </Link>
                   <Link href="/dashboard">
                     <Button variant="outline" className="w-full gap-2">
                       <ClipboardList className="w-4 h-4" /> Manage in dashboard

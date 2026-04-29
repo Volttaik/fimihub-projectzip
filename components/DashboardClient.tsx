@@ -4,6 +4,7 @@ import Link from 'next/link'
 import { Button } from '@/components/ui/button'
 import { Plus, Eye, Heart, MessageSquare, TrendingUp, Clock, CheckCircle2, XCircle, BarChart2, Coins, Trash2, Zap, Edit2 } from 'lucide-react'
 import DashboardNav from '@/components/DashboardNav'
+import AvatarUploader from '@/components/AvatarUploader'
 import { Skeleton } from '@/components/ui/skeleton'
 import type { Ad, Profile, CreditTransaction } from '@/lib/supabase/types'
 import type { User } from '@supabase/supabase-js'
@@ -98,9 +99,20 @@ export default function DashboardClient({ user, profile, ads, transactions, free
       <DashboardNav />
       <div className="container mx-auto px-4 py-8 max-w-5xl">
       <div className="flex items-start justify-between mb-7 flex-wrap gap-3">
-        <div>
-          <h1 className="text-2xl font-bold">Welcome back, {displayName.split(' ')[0]}</h1>
-          <p className="text-muted-foreground text-sm mt-0.5">Here&apos;s what&apos;s happening with your ad spaces.</p>
+        <div className="flex items-center gap-4">
+          <AvatarUploader
+            userId={user.id}
+            initialUrl={profile?.avatar_url ?? null}
+            displayName={displayName}
+            size={64}
+          />
+          <div>
+            <h1 className="text-2xl font-bold">Welcome back, {displayName.split(' ')[0]}</h1>
+            <p className="text-muted-foreground text-sm mt-0.5">
+              Here&apos;s what&apos;s happening with your ad spaces.{' '}
+              <span className="hidden sm:inline text-xs">Tap your photo to change it.</span>
+            </p>
+          </div>
         </div>
         <div className="flex items-center gap-2">
           <Link href="/credits">
@@ -168,9 +180,14 @@ export default function DashboardClient({ user, profile, ads, transactions, free
                         {s.icon} {s.label}
                       </span>
                       <div className="flex items-center gap-1 shrink-0">
-                        <Link href={`/ad/${ad.id}`}>
+                        <Link href={`/ad/${ad.id}`} title="View">
                           <button className="p-1.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted/60 transition-colors">
                             <Eye className="w-3.5 h-3.5" />
+                          </button>
+                        </Link>
+                        <Link href={`/ad/${ad.id}/edit`} title="Edit">
+                          <button className="p-1.5 rounded-lg text-muted-foreground hover:text-primary hover:bg-primary/10 transition-colors">
+                            <Edit2 className="w-3.5 h-3.5" />
                           </button>
                         </Link>
                         <button onClick={() => handleBoost(ad.id)}
@@ -178,7 +195,7 @@ export default function DashboardClient({ user, profile, ads, transactions, free
                           <Zap className="w-3.5 h-3.5" />
                         </button>
                         <button onClick={() => handleDelete(ad.id)} disabled={deletingId === ad.id}
-                          className="p-1.5 rounded-lg text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors">
+                          className="p-1.5 rounded-lg text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors" title="Delete">
                           <Trash2 className="w-3.5 h-3.5" />
                         </button>
                       </div>

@@ -9,7 +9,17 @@ export async function POST(req: Request) {
   const admin = createAdminClient()
   const { data: { user } } = await supabase.auth.getUser()
 
-  const { ad_id, quantity, buyer_email, buyer_name, buyer_phone } = await req.json()
+  const {
+    ad_id,
+    quantity,
+    buyer_email,
+    buyer_name,
+    buyer_phone,
+    shipping_address,
+    shipping_state,
+    shipping_city,
+    delivery_notes,
+  } = await req.json()
   if (!ad_id || !buyer_email || !buyer_name) {
     return NextResponse.json({ error: 'Missing buyer details' }, { status: 400 })
   }
@@ -17,12 +27,15 @@ export async function POST(req: Request) {
 
   const { data: ad, error: adErr } = await admin
     .from('ads')
-    .select('id, title, price, accept_payments, quantity, user_id, status')
+    .select('id, title, price, accept_payments, requires_shipping, quantity, user_id, status')
     .eq('id', ad_id)
     .single()
   if (adErr || !ad) return NextResponse.json({ error: 'Ad not found' }, { status: 404 })
   if (ad.status !== 'active') return NextResponse.json({ error: 'Ad is not active' }, { status: 400 })
   if (!ad.accept_payments) return NextResponse.json({ error: 'This seller does not accept payments' }, { status: 400 })
+  if ((ad as any).requires_shipping && (!shipping_address || !shipping_state || !shipping_city)) {
+    return NextResponse.json({ error: 'Please provide your full delivery address' }, { status: 400 })
+  }
   if (!ad.price || ad.price <= 0) return NextResponse.json({ error: 'Ad has no price set' }, { status: 400 })
   if (typeof ad.quantity === 'number' && ad.quantity < qty) {
     return NextResponse.json({ error: `Only ${ad.quantity} available` }, { status: 400 })
@@ -57,7 +70,11 @@ export async function POST(req: Request) {
     paystack_reference: reference,
     ad_title: ad.title,
     status: 'pending',
-  })
+    shipping_address: shipping_address || null,
+    shipping_state: shipping_state || null,
+    shipping_city: shipping_city || null,
+    delivery_notes: delivery_notes || null,
+  } as any)
 
   const origin = new URL(req.url).origin
   try {
