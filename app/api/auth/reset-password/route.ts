@@ -34,16 +34,23 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Reset link has expired. Please request a new one.' }, { status: 400 })
     }
 
-    const { error: updateError } = await admin.auth.admin.updateUserById(tokenRow.user_id, { password })
+    // Update the password and confirm the email at the same time — the user proved
+    // they can access the inbox by clicking this link, so we don't need a separate
+    // verification step. This prevents people getting stuck in a "can't log in,
+    // keep being asked to verify" loop after resetting their password.
+    const { error: updateError } = await admin.auth.admin.updateUserById(tokenRow.user_id, {
+      password,
+      email_confirm: true,
+    })
     if (updateError) {
       console.error('Password update failed:', updateError)
       return NextResponse.json({ error: 'Could not update password' }, { status: 500 })
     }
 
-    await admin
-      .from('password_reset_tokens' as any)
-      .update({ used: true })
-      .eq('id', tokenRow.id)
+    await Promise.all([
+      admin.from('password_reset_tokens' as any).update({ used: true }).eq('id', tokenRow.id),
+      admin.from('profiles').update({ email_verified: true }).eq('id', tokenRow.user_id),
+    ])
 
     return NextResponse.json({ success: true })
   } catch (err) {

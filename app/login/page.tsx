@@ -33,7 +33,30 @@ export default function LoginPage() {
     setLoading(true)
     const { error } = await supabase.auth.signInWithPassword({ email, password })
     if (error) {
-      toast.error(error.message === 'Invalid login credentials' ? 'Wrong email or password' : error.message)
+      const raw = (error.message || '').toLowerCase()
+      const notConfirmed =
+        raw.includes('email not confirmed') ||
+        raw.includes('not confirmed') ||
+        raw.includes('email_not_confirmed') ||
+        raw.includes('confirm your email') ||
+        raw.includes('email link') ||
+        (error as any).code === 'email_not_confirmed'
+
+      if (notConfirmed) {
+        // Send a fresh branded verification email pointing at our /verify page
+        try {
+          await fetch('/api/auth/resend-verification', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ email }),
+          })
+        } catch {}
+        toast.error('Please verify your email — we just sent you a fresh verification link.', { duration: 6000 })
+      } else if (error.message === 'Invalid login credentials') {
+        toast.error('Wrong email or password')
+      } else {
+        toast.error(error.message)
+      }
       setLoading(false)
     } else {
       toast.success('Welcome back!')

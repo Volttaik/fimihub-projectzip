@@ -24,11 +24,13 @@ interface Props {
   profile: Profile | null
   ads: Ad[]
   transactions: CreditTransaction[]
+  freeBoostAvailable: boolean
 }
 
-export default function DashboardClient({ user, profile, ads, transactions }: Props) {
+export default function DashboardClient({ user, profile, ads, transactions, freeBoostAvailable: initialFreeBoost }: Props) {
   const [adList, setAdList] = useState(ads)
   const [deletingId, setDeletingId] = useState<string | null>(null)
+  const [freeBoostAvailable, setFreeBoostAvailable] = useState(initialFreeBoost)
   const supabase = createClient()
 
   const displayName = profile?.full_name || user.user_metadata?.full_name || user.email?.split('@')[0] || 'User'
@@ -57,7 +59,35 @@ export default function DashboardClient({ user, profile, ads, transactions }: Pr
   }
 
   const handleBoost = async (adId: string) => {
-    if (credits < 5) { toast.error('You need at least 5 credits to boost an ad'); return }
+    // First boost is free
+    if (freeBoostAvailable) {
+      const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString()
+      const { error: adError } = await supabase
+        .from('ads')
+        .update({ is_boosted: true, boost_expires_at: expiresAt })
+        .eq('id', adId)
+      if (adError) {
+        toast.error('Boost failed. Please try again.')
+        return
+      }
+      // Log a zero-credit transaction so we know this user has used their free boost
+      await supabase.from('credit_transactions').insert({
+        user_id: user.id,
+        amount: 0,
+        type: 'spend',
+        description: 'Free boost (welcome gift)',
+        reference: `free_boost_${adId}`,
+      })
+      setFreeBoostAvailable(false)
+      setAdList(prev => prev.map(a => a.id === adId ? { ...a, is_boosted: true, boost_expires_at: expiresAt } : a))
+      toast.success('Free boost applied — your ad is at the top for 7 days!')
+      return
+    }
+
+    if (credits < 5) {
+      toast.error('You need at least 5 credits to boost an ad')
+      return
+    }
     const { error } = await supabase.rpc('boost_ad', { ad_id: adId })
     if (error) toast.error('Boost failed. Please try again.')
     else toast.success('Ad boosted for 7 days')

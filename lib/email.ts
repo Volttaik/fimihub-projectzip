@@ -134,8 +134,8 @@ export async function sendWelcomeEmail(to: string, name: string, siteUrl?: strin
       Your account is now active. You can post ad spaces, browse listings, and connect with buyers and sellers across Africa.
     </p>
     <table role="presentation" cellpadding="0" cellspacing="0" style="margin:0 0 24px;">
-      <tr><td style="padding:6px 0;color:#374151;font-size:14px;line-height:1.6;">&bull; Post ad spaces for free</td></tr>
-      <tr><td style="padding:6px 0;color:#374151;font-size:14px;line-height:1.6;">&bull; You start with 10 credits — enough to boost 2 ad spaces</td></tr>
+      <tr><td style="padding:6px 0;color:#374151;font-size:14px;line-height:1.6;">&bull; Your first 3 ad spaces are free to post</td></tr>
+      <tr><td style="padding:6px 0;color:#374151;font-size:14px;line-height:1.6;">&bull; Get 1 free boost to push your ad to the top</td></tr>
       <tr><td style="padding:6px 0;color:#374151;font-size:14px;line-height:1.6;">&bull; Connect a bank account to accept payments directly</td></tr>
       <tr><td style="padding:6px 0;color:#374151;font-size:14px;line-height:1.6;">&bull; Manage everything from your dashboard</td></tr>
     </table>

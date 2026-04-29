@@ -49,24 +49,15 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: msg }, { status })
     }
 
-    // 2. Update profile with extra fields (give 10 starter credits)
+    // 2. Update profile with extra fields (no starter credits — first 3 posts and first boost are free)
     await admin.from('profiles').update({
       phone: phone ?? null,
       date_of_birth: date_of_birth ?? null,
       sex: sex ?? null,
       bio: bio ?? null,
       specialisations: specialisations ?? [],
-      credits: 10,
+      credits: 0,
     }).eq('id', created.user.id)
-
-    // Record the welcome credit transaction
-    await admin.from('credit_transactions').insert({
-      user_id: created.user.id,
-      amount: 10,
-      type: 'purchase',
-      description: 'Welcome bonus — enough to boost 2 ad spaces',
-      reference: `welcome_${created.user.id}`,
-    })
 
     // 3. Generate our own opaque verification token
     const token = crypto.randomBytes(32).toString('hex')
