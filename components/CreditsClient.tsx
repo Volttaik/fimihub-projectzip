@@ -6,6 +6,7 @@ import type { CreditTransaction } from '@/lib/supabase/types'
 import { timeAgo } from '@/lib/utils'
 import { toast } from 'sonner'
 import { useSearchParams } from 'next/navigation'
+import DashboardNav from '@/components/DashboardNav'
 
 const CREDIT_PACKS = [
   { credits: 10, price: 2000, label: 'Starter', description: 'Boost 2 ads for 7 days each', highlight: false },
@@ -64,7 +65,9 @@ export default function CreditsClient({ userId, userEmail, credits: initialCredi
   }
 
   return (
-    <div className="container mx-auto px-4 py-10 max-w-4xl">
+    <div>
+      <DashboardNav />
+      <div className="container mx-auto px-4 py-10 max-w-4xl">
       <div className="mb-8">
         <h1 className="text-2xl font-bold">Buy Credits</h1>
         <p className="text-muted-foreground text-sm mt-1">Use credits to boost your ad spaces to the top of search results.</p>
@@ -161,6 +164,7 @@ export default function CreditsClient({ userId, userEmail, credits: initialCredi
           </div>
         </div>
       )}
+      </div>
     </div>
   )
 }

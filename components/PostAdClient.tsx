@@ -31,6 +31,7 @@ interface Props {
   userId: string
   userEmail: string
   credits: number
+  hasPayoutAccount: boolean
 }
 
 interface UploadFile {
@@ -42,7 +43,7 @@ interface UploadFile {
   error?: string
 }
 
-export default function PostAdClient({ userId, userEmail, credits }: Props) {
+export default function PostAdClient({ userId, userEmail, credits, hasPayoutAccount }: Props) {
   const router = useRouter()
   const [step, setStep] = useState(1)
   const [submitted, setSubmitted] = useState(false)
@@ -52,7 +53,7 @@ export default function PostAdClient({ userId, userEmail, credits }: Props) {
   const [form, setForm] = useState({
     title: '', category: '', description: '', price: '',
     priceType: 'fixed', location: '', contactEmail: userEmail,
-    contactPhone: '', tags: '',
+    contactPhone: '', tags: '', quantity: '', acceptPayments: false,
   })
   const set = (k: string, v: string) => setForm(f => ({ ...f, [k]: v }))
 
@@ -142,7 +143,9 @@ export default function PostAdClient({ userId, userEmail, credits }: Props) {
       media,
       tags,
       boost_expires_at: null,
-    })
+      quantity: form.quantity ? Number(form.quantity) : null,
+      accept_payments: form.acceptPayments && hasPayoutAccount,
+    } as any)
 
     setLoading(false)
     if (error) {
@@ -262,6 +265,43 @@ export default function PostAdClient({ userId, userEmail, credits }: Props) {
               <Input id="tags" placeholder="laptop, apple, macbook, tech" value={form.tags}
                 onChange={e => set('tags', e.target.value)} className="mt-1.5" />
             </div>
+
+            {form.category === 'products' && (
+              <div>
+                <Label htmlFor="qty">Available stock</Label>
+                <Input id="qty" type="number" min={1} placeholder="e.g. 5"
+                  value={form.quantity} onChange={e => set('quantity', e.target.value)} className="mt-1.5" />
+                <p className="text-xs text-muted-foreground mt-1">Leave empty if quantity isn&apos;t relevant.</p>
+              </div>
+            )}
+
+            {form.priceType !== 'free' && form.price && (
+              <div className="rounded-xl border border-border p-4 bg-muted/30">
+                <div className="flex items-start gap-3">
+                  <input
+                    type="checkbox"
+                    id="acceptPay"
+                    checked={form.acceptPayments && hasPayoutAccount}
+                    disabled={!hasPayoutAccount}
+                    onChange={e => setForm(f => ({ ...f, acceptPayments: e.target.checked }))}
+                    className="mt-1 w-4 h-4 accent-primary"
+                  />
+                  <div className="flex-1">
+                    <label htmlFor="acceptPay" className="font-medium text-sm block">
+                      Accept payments on this ad space
+                    </label>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      Buyers see a Buy Now button and pay you directly via Paystack. A 5% platform fee applies.
+                    </p>
+                    {!hasPayoutAccount && (
+                      <a href="/bank-account" className="text-xs text-primary hover:underline inline-block mt-1.5">
+                        Connect a bank account to enable this →
+                      </a>
+                    )}
+                  </div>
+                </div>
+              </div>
+            )}
             <div className="flex justify-between">
               <Button type="button" variant="outline" onClick={() => setStep(1)}>Back</Button>
               <Button type="button" disabled={!step2Valid} onClick={() => setStep(3)}>Continue →</Button>

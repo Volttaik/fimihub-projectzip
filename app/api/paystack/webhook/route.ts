@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
 import crypto from 'crypto'
-import { createClient } from '@/lib/supabase/server'
+import { createAdminClient } from '@/lib/supabase/admin'
 
 export async function POST(request: NextRequest) {
   try {
@@ -21,37 +21,66 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ received: true })
     }
 
-    const { reference, metadata, amount } = event.data
-    const userId = metadata?.user_id
-    const credits = Number(metadata?.credits || 0)
+    const { reference, metadata } = event.data
+    const admin = createAdminClient()
 
-    if (!userId || !credits) {
-      return NextResponse.json({ error: 'Missing metadata' }, { status: 400 })
+    // Order payment branch
+    if (metadata?.type === 'order') {
+      const { data: order } = await admin
+        .from('orders')
+        .select('id, ad_id, quantity, status')
+        .eq('paystack_reference', reference)
+        .single()
+
+      if (!order) return NextResponse.json({ received: true })
+      if (order.status === 'paid') return NextResponse.json({ received: true })
+
+      await admin
+        .from('orders')
+        .update({ status: 'paid', paid_at: new Date().toISOString() })
+        .eq('id', order.id)
+
+      // Decrement stock if tracked
+      if (order.ad_id) {
+        const { data: ad } = await admin
+          .from('ads')
+          .select('quantity')
+          .eq('id', order.ad_id)
+          .single()
+        if (ad && typeof ad.quantity === 'number') {
+          const next = Math.max(0, ad.quantity - (order.quantity || 1))
+          const update: any = { quantity: next }
+          if (next === 0) update.status = 'sold'
+          await admin.from('ads').update(update).eq('id', order.ad_id)
+        }
+      }
+
+      return NextResponse.json({ received: true })
     }
 
-    const supabase = await createClient()
+    // Credits purchase branch
+    const userId = metadata?.user_id
+    const credits = Number(metadata?.credits || 0)
+    if (!userId || !credits) {
+      return NextResponse.json({ received: true })
+    }
 
-    // Check for duplicate webhook
-    const { data: existing } = await supabase
+    const { data: existing } = await admin
       .from('credit_transactions')
       .select('id')
       .eq('reference', reference)
       .single()
-
     if (existing) return NextResponse.json({ received: true })
 
-    // Add credits to user
-    const { data: profile } = await supabase
+    const { data: profile } = await admin
       .from('profiles')
       .select('credits')
       .eq('id', userId)
       .single()
-
     const currentCredits = profile?.credits || 0
-    await supabase.from('profiles').update({ credits: currentCredits + credits }).eq('id', userId)
+    await admin.from('profiles').update({ credits: currentCredits + credits }).eq('id', userId)
 
-    // Record transaction
-    await supabase.from('credit_transactions').insert({
+    await admin.from('credit_transactions').insert({
       user_id: userId,
       amount: credits,
       type: 'purchase',

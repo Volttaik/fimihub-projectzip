@@ -13,11 +13,51 @@ export interface Profile {
   location: string | null
   created_at: string
   email_verified: boolean
+  paystack_subaccount_code: string | null
+  bank_name: string | null
+  bank_code: string | null
+  account_number: string | null
+  account_name: string | null
+}
+
+export interface Order {
+  id: string
+  ad_id: string | null
+  buyer_id: string | null
+  seller_id: string
+  buyer_email: string
+  buyer_phone: string | null
+  buyer_name: string | null
+  quantity: number
+  amount_kobo: number
+  seller_amount_kobo: number
+  platform_fee_kobo: number
+  paystack_reference: string
+  status: 'pending' | 'paid' | 'failed' | 'cancelled'
+  ad_title: string | null
+  created_at: string
+  paid_at: string | null
+}
+
+export interface CustomRequest {
+  id: string
+  ad_id: string
+  seller_id: string
+  buyer_name: string
+  buyer_email: string
+  buyer_phone: string | null
+  message: string
+  budget: number | null
+  quantity: number | null
+  status: 'open' | 'responded' | 'closed'
+  created_at: string
 }
 
 export interface Ad {
   id: string
   user_id: string
+  quantity: number | null
+  accept_payments: boolean
   title: string
   description: string
   category: Category

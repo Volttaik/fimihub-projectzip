@@ -3,6 +3,7 @@ import { useState } from 'react'
 import Link from 'next/link'
 import { Button } from '@/components/ui/button'
 import { Plus, Eye, Heart, MessageSquare, TrendingUp, Clock, CheckCircle2, XCircle, BarChart2, Coins, Trash2, Zap, Edit2 } from 'lucide-react'
+import DashboardNav from '@/components/DashboardNav'
 import { Skeleton } from '@/components/ui/skeleton'
 import type { Ad, Profile, CreditTransaction } from '@/lib/supabase/types'
 import type { User } from '@supabase/supabase-js'
@@ -63,11 +64,13 @@ export default function DashboardClient({ user, profile, ads, transactions }: Pr
   }
 
   return (
-    <div className="container mx-auto px-4 py-8 max-w-5xl">
-      <div className="flex items-start justify-between mb-7">
+    <div>
+      <DashboardNav />
+      <div className="container mx-auto px-4 py-8 max-w-5xl">
+      <div className="flex items-start justify-between mb-7 flex-wrap gap-3">
         <div>
           <h1 className="text-2xl font-bold">Welcome back, {displayName.split(' ')[0]}</h1>
-          <p className="text-muted-foreground text-sm mt-0.5">Here's what's happening with your ad spaces.</p>
+          <p className="text-muted-foreground text-sm mt-0.5">Here&apos;s what&apos;s happening with your ad spaces.</p>
         </div>
         <div className="flex items-center gap-2">
           <Link href="/credits">
@@ -216,6 +219,7 @@ export default function DashboardClient({ user, profile, ads, transactions }: Pr
             </div>
           </div>
         </div>
+      </div>
       </div>
     </div>
   )

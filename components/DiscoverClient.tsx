@@ -235,10 +235,6 @@ export default function DiscoverClient({ initialAds }: { initialAds: Ad[] }) {
             </div>
           )}
 
-          <p className="text-xs text-muted-foreground mb-3 px-0.5">
-            <span className="font-semibold text-foreground">{filtered.length}</span> ad spaces
-          </p>
-
           {filtered.length === 0 ? (
             <div className="glass rounded-2xl text-center py-20 shadow-sm">
               <div className="w-14 h-14 rounded-full bg-muted flex items-center justify-center mx-auto mb-3">
