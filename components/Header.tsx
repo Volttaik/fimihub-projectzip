@@ -59,8 +59,11 @@ export default function Header() {
     <header className="sticky top-0 z-50 bg-card/80 backdrop-blur-md border-b border-border/60 shadow-sm">
       <div className="container mx-auto px-4 max-w-6xl">
         <div className="flex items-center h-16 gap-3">
-          <Link href="/" className="flex items-center gap-2 shrink-0 mr-2">
-            <FimiLogo />
+          <Link
+            href="/"
+            className="flex items-center gap-2 shrink-0 mr-2 group transition-transform duration-200 hover:scale-[1.03] active:scale-95"
+          >
+            <FimiLogo className="transition-shadow duration-200 group-hover:shadow-lg" />
             <span className="font-bold text-lg tracking-tight leading-none">
               Fimi<span className="text-primary">Hub</span>
             </span>
