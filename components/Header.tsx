@@ -61,7 +61,9 @@ export default function Header() {
         <div className="flex items-center h-16 gap-3">
           <Link href="/" className="flex items-center gap-2 shrink-0 mr-2">
             <FimiLogo />
-            <span className="font-bold text-lg tracking-tight">FimiHub</span>
+            <span className="font-bold text-lg tracking-tight leading-none">
+              Fimi<span className="text-primary">Hub</span>
+            </span>
           </Link>
 
           <nav className="hidden md:flex items-center gap-1">
