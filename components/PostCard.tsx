@@ -1,0 +1,167 @@
+"use client"
+import { useState } from 'react'
+import Link from 'next/link'
+import Image from 'next/image'
+import { MapPin, Eye, Heart, MessageCircle, Share2, Star, ShoppingBag, Wrench, Home, Briefcase, BadgeCheck, PlayCircle, Images } from 'lucide-react'
+import type { Ad } from '@/lib/supabase/types'
+import { formatPrice, timeAgo } from '@/lib/utils'
+import { createClient } from '@/lib/supabase/client'
+import { toast } from 'sonner'
+
+const categoryConfig: Record<string, { label: string; icon: React.ComponentType<{ className?: string }>; badgeClass: string }> = {
+  products: { label: 'Products', icon: ShoppingBag, badgeClass: 'bg-primary/10 text-primary' },
+  services: { label: 'Services', icon: Wrench, badgeClass: 'bg-primary/10 text-primary' },
+  rentals:  { label: 'Rentals', icon: Home, badgeClass: 'bg-primary/10 text-primary' },
+  business: { label: 'Business', icon: Briefcase, badgeClass: 'bg-accent/15 text-accent-foreground' },
+}
+
+const avatarPalette = [
+  'hsl(263,78%,56%)', 'hsl(35,90%,52%)', 'hsl(155,55%,42%)',
+  'hsl(217,85%,53%)', 'hsl(340,70%,52%)', 'hsl(199,80%,46%)',
+]
+function getAvatarColor(name: string) {
+  let h = 0
+  for (let i = 0; i < name.length; i++) h = name.charCodeAt(i) + ((h << 5) - h)
+  return avatarPalette[Math.abs(h) % avatarPalette.length]
+}
+
+interface Props {
+  ad: Ad
+  savedByUser?: boolean
+}
+
+export default function PostCard({ ad, savedByUser = false }: Props) {
+  const [saved, setSaved] = useState(savedByUser)
+  const [savingLoading, setSavingLoading] = useState(false)
+  const cat = categoryConfig[ad.category] ?? categoryConfig.products
+  const Icon = cat.icon
+  const avatarColor = getAvatarColor(ad.profiles?.full_name || ad.user_id)
+  const posterName = ad.profiles?.full_name || 'FimiHub User'
+  const media = ad.media || []
+  const firstMedia = media[0]
+  const isVideo = firstMedia?.type === 'video'
+  const isAlbum = media.length > 1
+  const supabase = createClient()
+
+  const handleSave = async () => {
+    setSavingLoading(true)
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) { toast.error('Sign in to save ads'); setSavingLoading(false); return }
+    if (saved) {
+      await supabase.from('saves').delete().eq('user_id', user.id).eq('ad_id', ad.id)
+      setSaved(false)
+      toast.success('Removed from saved')
+    } else {
+      await supabase.from('saves').insert({ user_id: user.id, ad_id: ad.id })
+      setSaved(true)
+      toast.success('Ad saved!')
+    }
+    setSavingLoading(false)
+  }
+
+  const handleShare = () => {
+    navigator.clipboard.writeText(`${window.location.origin}/ad/${ad.id}`)
+    toast.success('Link copied to clipboard!')
+  }
+
+  return (
+    <article className="glass rounded-2xl overflow-hidden shadow-sm hover:shadow-md transition-all duration-300 group/card animate-in-up">
+      {ad.featured && (
+        <div className="flex items-center gap-1.5 px-4 pt-3">
+          <Star className="w-3 h-3 text-accent fill-accent" />
+          <span className="text-xs font-semibold text-accent tracking-wide uppercase">Sponsored</span>
+        </div>
+      )}
+
+      <div className="p-4 pb-3">
+        <div className="flex items-start justify-between gap-3 mb-3">
+          <div className="flex items-center gap-2.5">
+            <div className="w-9 h-9 rounded-full flex items-center justify-center text-white font-bold text-sm shrink-0 shadow-sm"
+              style={{ backgroundColor: avatarColor }}>
+              {posterName.charAt(0).toUpperCase()}
+            </div>
+            <div>
+              <div className="flex items-center gap-1">
+                <span className="font-semibold text-sm">{posterName}</span>
+                <BadgeCheck className="w-3.5 h-3.5 text-primary" />
+              </div>
+              <div className="flex items-center gap-1 mt-0.5 text-xs text-muted-foreground">
+                <MapPin className="w-3 h-3 shrink-0" />
+                <span className="truncate max-w-[160px]">{ad.location}</span>
+                <span className="text-border">·</span>
+                <span className="shrink-0">{timeAgo(ad.created_at)}</span>
+              </div>
+            </div>
+          </div>
+          <span className={`flex items-center gap-1 text-xs font-medium px-2.5 py-1 rounded-full shrink-0 ${cat.badgeClass}`}>
+            <Icon className="w-3 h-3" />
+            {cat.label}
+          </span>
+        </div>
+
+        <Link href={`/ad/${ad.id}`} className="block">
+          <h3 className="font-bold text-[15px] leading-snug mb-1.5 group-hover/card:text-primary transition-colors duration-200">
+            {ad.title}
+          </h3>
+          <p className="text-sm text-muted-foreground leading-relaxed line-clamp-2 mb-3">
+            {ad.description}
+          </p>
+
+          {firstMedia && (
+            <div className="rounded-xl overflow-hidden mb-3 bg-muted aspect-video relative">
+              {isVideo ? (
+                <>
+                  <div className="absolute inset-0 bg-black/40 flex items-center justify-center z-10">
+                    <PlayCircle className="w-12 h-12 text-white/90" />
+                  </div>
+                  <video src={firstMedia.url} className="w-full h-full object-cover" muted />
+                </>
+              ) : (
+                <Image src={firstMedia.url} alt={ad.title} fill className="object-cover transition-transform duration-500 group-hover/card:scale-[1.03]" sizes="(max-width: 768px) 100vw, 600px" />
+              )}
+              {isAlbum && (
+                <div className="absolute bottom-2 right-2 z-10 bg-black/60 text-white text-xs px-2 py-1 rounded-full flex items-center gap-1">
+                  <Images className="w-3 h-3" /> {media.length}
+                </div>
+              )}
+            </div>
+          )}
+        </Link>
+
+        <div className="flex items-center gap-2 mb-3 flex-wrap">
+          <span className="text-base font-bold text-primary">{formatPrice(ad.price ?? null, ad.price_type)}</span>
+          {ad.price_type === 'negotiable' && (
+            <span className="text-xs bg-muted text-muted-foreground px-2 py-0.5 rounded-full">Negotiable</span>
+          )}
+          {(ad.tags || []).slice(0, 2).map(tag => (
+            <Link key={tag} href={`/?q=${encodeURIComponent(tag)}`}>
+              <span className="text-xs bg-primary/10 text-primary px-2 py-0.5 rounded-full hover:bg-primary/20 transition-colors">#{tag}</span>
+            </Link>
+          ))}
+        </div>
+      </div>
+
+      <div className="flex items-center border-t border-border/60 px-1">
+        <Link href={`/ad/${ad.id}`}
+          className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-primary transition-colors px-3 py-2.5 rounded-xl hover:bg-primary/8 flex-1 justify-center">
+          <MessageCircle className="w-4 h-4" />
+          <span className="hidden sm:inline font-medium">Contact</span>
+        </Link>
+        <div className="flex items-center gap-1.5 text-xs text-muted-foreground px-3 py-2.5 flex-1 justify-center">
+          <Eye className="w-4 h-4" />
+          <span>{(ad.views || 0).toLocaleString()}</span>
+        </div>
+        <button onClick={handleSave} disabled={savingLoading}
+          className={`flex items-center gap-1.5 text-xs transition-all duration-200 px-3 py-2.5 rounded-xl flex-1 justify-center ${saved ? 'text-rose-500 bg-rose-50' : 'text-muted-foreground hover:text-rose-500 hover:bg-rose-50/60'}`}>
+          <Heart className={`w-4 h-4 transition-all duration-200 ${saved ? 'fill-rose-500 scale-110' : ''}`} />
+          <span className="hidden sm:inline font-medium">Save</span>
+        </button>
+        <button onClick={handleShare}
+          className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-primary transition-colors px-3 py-2.5 rounded-xl hover:bg-primary/8 flex-1 justify-center">
+          <Share2 className="w-4 h-4" />
+          <span className="hidden sm:inline font-medium">Share</span>
+        </button>
+      </div>
+    </article>
+  )
+}
