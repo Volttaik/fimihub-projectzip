@@ -100,6 +100,31 @@ export async function sendVerificationEmail(
   })
 }
 
+export async function sendPasswordResetEmail(
+  to: string,
+  name: string,
+  resetUrl: string
+) {
+  const transporter = getTransporter()
+  const body = `
+    <h1 style="margin:0 0 12px;color:#111827;font-size:22px;font-weight:700;line-height:1.3;">Reset your password</h1>
+    <p style="margin:0 0 20px;color:#4b5563;font-size:15px;line-height:1.6;">
+      Hi ${name || 'there'}, we received a request to reset the password for your FimiHub account. Click the button below to choose a new one.
+    </p>
+    <div style="text-align:center;margin:28px 0;">
+      ${ctaButton(resetUrl, 'Reset password')}
+    </div>
+    <p style="margin:24px 0 0;color:#6b7280;font-size:13px;line-height:1.6;">
+      This link will expire in 1 hour. If you didn't request a password reset, you can safely ignore this email — your password won't change.
+    </p>`
+  await transporter.sendMail({
+    from: `"FimiHub" <${process.env.EMAIL_USER}>`,
+    to,
+    subject: 'Reset your FimiHub password',
+    html: emailShell({ previewText: 'Reset your FimiHub password.', bodyHtml: body }),
+  })
+}
+
 export async function sendWelcomeEmail(to: string, name: string, siteUrl?: string) {
   const transporter = getTransporter()
   const dashboardUrl = `${siteUrl || process.env.NEXT_PUBLIC_SITE_URL || 'https://fimihub.com'}/dashboard`
