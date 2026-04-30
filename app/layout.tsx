@@ -4,16 +4,17 @@ import { Toaster } from 'sonner'
 import Header from '@/components/Header'
 import PWARegister from '@/components/PWARegister'
 import InstallPrompt from '@/components/InstallPrompt'
+import SplashScreen from '@/components/SplashScreen'
 
 export const metadata: Metadata = {
-  title: 'fimihub — the marketplace for students & business owners',
-  description: 'Buy, sell, rent and advertise on fimihub — the trusted marketplace built for students and business owners.',
+  title: 'FimiHub — the marketplace for students & business owners',
+  description: 'Buy, sell, rent and advertise on FimiHub — the trusted marketplace built for students and business owners.',
   keywords: 'marketplace, ads, buy, sell, students, business, rentals, services',
   manifest: '/manifest.webmanifest',
-  applicationName: 'fimihub',
+  applicationName: 'FimiHub',
   appleWebApp: {
     capable: true,
-    title: 'fimihub',
+    title: 'FimiHub',
     statusBarStyle: 'black-translucent',
   },
   formatDetection: {
@@ -35,6 +36,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="en" suppressHydrationWarning>
       <body className="min-h-screen bg-background antialiased">
+        <SplashScreen />
         <Header />
         <main className="min-h-[calc(100vh-4rem)]">
           {children}

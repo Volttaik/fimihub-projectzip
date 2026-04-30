@@ -267,7 +267,7 @@ export default function DiscoverClient({ initialAds, currentUserId = null }: { i
           </div>
 
           <div className="glass rounded-2xl p-4 shadow-sm">
-            <span className="font-semibold text-sm block mb-3">Why fimihub</span>
+            <span className="font-semibold text-sm block mb-3">Why FimiHub?</span>
             <ul className="space-y-2 text-xs text-muted-foreground leading-relaxed">
               <li className="flex items-start gap-2">
                 <span className="mt-1 w-1.5 h-1.5 rounded-full bg-primary shrink-0" />

@@ -2,10 +2,10 @@ import type { MetadataRoute } from 'next'
 
 export default function manifest(): MetadataRoute.Manifest {
   return {
-    name: 'fimihub — students & business owners marketplace',
-    short_name: 'fimihub',
+    name: 'FimiHub — students & business owners marketplace',
+    short_name: 'FimiHub',
     description:
-      'Buy, sell, rent and advertise on fimihub — the trusted marketplace built for students and business owners.',
+      'Buy, sell, rent and advertise on FimiHub — the trusted marketplace built for students and business owners.',
     start_url: '/',
     scope: '/',
     display: 'standalone',

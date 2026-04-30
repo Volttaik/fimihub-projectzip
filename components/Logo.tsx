@@ -11,7 +11,7 @@ export function FimiLogo({ className }: { className?: string }) {
         background:
           'linear-gradient(135deg, hsl(263, 82%, 60%) 0%, hsl(278, 78%, 48%) 55%, hsl(290, 80%, 40%) 100%)',
       }}
-      aria-label="fimihub"
+      aria-label="FimiHub"
     >
       <span
         aria-hidden="true"
@@ -68,8 +68,8 @@ export function FimiWordmark({ className }: { className?: string }) {
   return (
     <span className={cn('flex items-center gap-2', className)}>
       <FimiLogo />
-      <span className="font-bold text-lg tracking-tight leading-none lowercase">
-        fimi<span className="text-primary">hub</span>
+      <span className="font-bold text-lg tracking-tight leading-none">
+        Fimi<span className="text-primary">Hub</span>
       </span>
     </span>
   )

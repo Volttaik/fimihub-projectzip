@@ -90,7 +90,7 @@ export default function LoginPage() {
 
         <div className="hidden lg:flex flex-col gap-5">
           <div>
-            <h2 className="text-3xl font-bold leading-tight mb-2">Discover what's on<br />fimihub today</h2>
+            <h2 className="text-3xl font-bold leading-tight mb-2">Discover what's on<br />FimiHub today</h2>
             <p className="text-muted-foreground leading-relaxed">Thousands of ad spaces, products, services, rentals and businesses — all in one place.</p>
           </div>
           <div className="grid grid-cols-2 gap-3">
@@ -104,7 +104,7 @@ export default function LoginPage() {
               </div>
             ))}
           </div>
-          <p className="text-xs text-muted-foreground">Join 50,000+ users already buying, selling and connecting on fimihub.</p>
+          <p className="text-xs text-muted-foreground">Join 50,000+ users already buying, selling and connecting on FimiHub.</p>
         </div>
 
         <div className="w-full max-w-sm mx-auto lg:mx-0 lg:ml-auto">
@@ -112,7 +112,7 @@ export default function LoginPage() {
             <div className="text-center mb-7">
               <FimiLogo className="mx-auto w-14 h-14 rounded-2xl" />
               <h1 className="text-2xl font-bold mt-4 mb-1">Welcome back</h1>
-              <p className="text-sm text-muted-foreground">Sign in to your fimihub account</p>
+              <p className="text-sm text-muted-foreground">Sign in to your FimiHub account</p>
             </div>
 
             <form onSubmit={handleLogin} className="flex flex-col gap-4">
@@ -153,7 +153,7 @@ export default function LoginPage() {
           </div>
 
           <p className="text-center text-sm text-muted-foreground mt-4">
-            New to fimihub?{' '}
+            New to FimiHub?{' '}
             <Link href="/register" className="text-primary font-semibold hover:underline underline-offset-2 inline-flex items-center gap-0.5">
               Create a free account <ArrowRight className="w-3.5 h-3.5" />
             </Link>

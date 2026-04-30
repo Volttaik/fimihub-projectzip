@@ -72,7 +72,7 @@ export default async function VerifyPage({
             </div>
             <h1 className="text-2xl font-bold mb-2">Email verified</h1>
             <p className="text-muted-foreground leading-relaxed mb-6">
-              Welcome to fimihub{result.email ? `, ${result.email}` : ''}. Your account is now active.
+              Welcome to FimiHub{result.email ? `, ${result.email}` : ''}. Your account is now active.
             </p>
             <Link href="/login">
               <Button className="w-full gap-2">

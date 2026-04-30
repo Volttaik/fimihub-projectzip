@@ -43,7 +43,7 @@ export default function PostCard({ ad, savedByUser = false, currentUserId = null
   const cat = categoryConfig[ad.category] ?? categoryConfig.products
   const Icon = cat.icon
   const avatarColor = getAvatarColor(ad.profiles?.full_name || ad.user_id)
-  const posterName = ad.profiles?.full_name || 'fimihub User'
+  const posterName = ad.profiles?.full_name || 'FimiHub User'
   const media = ad.media || []
   const firstMedia = media[0]
   const isVideo = firstMedia?.type === 'video'

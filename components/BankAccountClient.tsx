@@ -42,7 +42,7 @@ export default function BankAccountClient({ profile }: { profile: Profile | null
         body: JSON.stringify({
           bank_code: bankCode,
           account_number: accountNumber,
-          business_name: businessName || 'fimihub Seller',
+          business_name: businessName || 'FimiHub Seller',
         }),
       })
       const data = await res.json()

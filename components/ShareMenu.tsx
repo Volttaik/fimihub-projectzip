@@ -60,7 +60,7 @@ export default function ShareMenu({ title, text, className }: Props) {
     }
   }, [open])
 
-  const shareText = text || `Check out "${title}" on fimihub`
+  const shareText = text || `Check out "${title}" on FimiHub`
   const encodedUrl = encodeURIComponent(url)
   const encodedText = encodeURIComponent(shareText)
   const encodedTitle = encodeURIComponent(title)

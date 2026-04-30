@@ -115,7 +115,7 @@ export default function CommentsSection({ adId, currentUserId }: Props) {
       ) : (
         <ul className="space-y-3">
           {comments.map(c => {
-            const name = c.profiles?.full_name || 'fimihub User'
+            const name = c.profiles?.full_name || 'FimiHub User'
             const isMine = c.user_id === currentUserId
             return (
               <li key={c.id} className="flex gap-3 group">

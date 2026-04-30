@@ -8,9 +8,6 @@ type BeforeInstallPromptEvent = Event & {
   userChoice: Promise<{ outcome: 'accepted' | 'dismissed'; platform: string }>
 }
 
-const DISMISS_KEY = 'fimihub_install_dismissed_at'
-const DISMISS_TTL_MS = 1000 * 60 * 60 * 24 * 7
-
 export default function InstallPrompt() {
   const [deferred, setDeferred] = useState<BeforeInstallPromptEvent | null>(null)
   const [show, setShow] = useState(false)
@@ -24,11 +21,6 @@ export default function InstallPrompt() {
       (navigator as any).standalone === true
     if (isStandalone) return
 
-    try {
-      const last = localStorage.getItem(DISMISS_KEY)
-      if (last && Date.now() - Number(last) < DISMISS_TTL_MS) return
-    } catch {}
-
     const ua = window.navigator.userAgent
     const isIOS = /iPad|iPhone|iPod/.test(ua) && !(window as any).MSStream
     const isSafari = /Safari/.test(ua) && !/CriOS|FxiOS|EdgiOS/.test(ua)
@@ -40,30 +32,26 @@ export default function InstallPrompt() {
     }
     window.addEventListener('beforeinstallprompt', handler)
 
+    const onInstalled = () => setShow(false)
+    window.addEventListener('appinstalled', onInstalled)
+
     if (isIOS && isSafari) {
       setIosTip(true)
       setShow(true)
     }
 
-    return () => window.removeEventListener('beforeinstallprompt', handler)
+    return () => {
+      window.removeEventListener('beforeinstallprompt', handler)
+      window.removeEventListener('appinstalled', onInstalled)
+    }
   }, [])
 
-  const dismiss = () => {
-    try {
-      localStorage.setItem(DISMISS_KEY, String(Date.now()))
-    } catch {}
-    setShow(false)
-  }
+  const dismiss = () => setShow(false)
 
   const install = async () => {
     if (!deferred) return
     await deferred.prompt()
-    const choice = await deferred.userChoice
-    if (choice.outcome !== 'accepted') {
-      try {
-        localStorage.setItem(DISMISS_KEY, String(Date.now()))
-      } catch {}
-    }
+    await deferred.userChoice
     setDeferred(null)
     setShow(false)
   }
@@ -77,7 +65,7 @@ export default function InstallPrompt() {
           <Download className="w-5 h-5" />
         </div>
         <div className="flex-1 min-w-0">
-          <p className="font-semibold text-sm leading-tight">Install fimihub</p>
+          <p className="font-semibold text-sm leading-tight">Install FimiHub</p>
           {iosTip ? (
             <p className="text-xs text-muted-foreground mt-1 leading-relaxed">
               Tap <Share className="inline w-3.5 h-3.5 align-text-bottom" /> Share, then
@@ -107,7 +95,7 @@ export default function InstallPrompt() {
         </div>
         <button
           onClick={dismiss}
-          aria-label="Dismiss"
+          aria-label="Hide"
           className="p-1.5 rounded-lg hover:bg-muted transition-colors text-muted-foreground"
         >
           <X className="w-4 h-4" />

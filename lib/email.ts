@@ -23,7 +23,7 @@ function emailShell(opts: { previewText: string; bodyHtml: string }) {
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <meta name="x-apple-disable-message-reformatting">
-  <title>fimihub</title>
+  <title>FimiHub</title>
   <style>${EMAIL_BASE_STYLES}</style>
 </head>
 <body style="margin:0;padding:0;background:#f4f4f7;">
@@ -37,7 +37,7 @@ function emailShell(opts: { previewText: string; bodyHtml: string }) {
               <table role="presentation" cellpadding="0" cellspacing="0">
                 <tr>
                   <td style="background:#7c3aed;border-radius:8px;padding:8px 14px;">
-                    <span style="color:#ffffff;font-size:16px;font-weight:700;letter-spacing:-0.2px;">fimihub</span>
+                    <span style="color:#ffffff;font-size:16px;font-weight:700;letter-spacing:-0.2px;">FimiHub</span>
                   </td>
                 </tr>
               </table>
@@ -51,8 +51,8 @@ function emailShell(opts: { previewText: string; bodyHtml: string }) {
           <tr>
             <td style="padding:20px 32px;background:#fafafa;border-top:1px solid #f0f0f3;">
               <p style="margin:0;color:#9ca3af;font-size:12px;line-height:1.5;">
-                You received this email from fimihub. If this wasn't you, please ignore this message.<br>
-                &copy; ${new Date().getFullYear()} fimihub. All rights reserved.
+                You received this email from FimiHub. If this wasn't you, please ignore this message.<br>
+                &copy; ${new Date().getFullYear()} FimiHub. All rights reserved.
               </p>
             </td>
           </tr>
@@ -84,19 +84,19 @@ export async function sendVerificationEmail(
   const body = `
     <h1 style="margin:0 0 12px;color:#111827;font-size:22px;font-weight:700;line-height:1.3;">Verify your email address</h1>
     <p style="margin:0 0 20px;color:#4b5563;font-size:15px;line-height:1.6;">
-      Hi ${name}, welcome to fimihub. Please confirm your email address to activate your account and start posting.
+      Hi ${name}, welcome to FimiHub. Please confirm your email address to activate your account and start posting.
     </p>
     <div style="text-align:center;margin:28px 0;">
       ${ctaButton(verificationUrl, 'Verify email address')}
     </div>
     <p style="margin:24px 0 0;color:#6b7280;font-size:13px;line-height:1.6;">
-      This link will expire in 24 hours. If you didn't create a fimihub account, you can safely ignore this email.
+      This link will expire in 24 hours. If you didn't create a FimiHub account, you can safely ignore this email.
     </p>`
   await transporter.sendMail({
-    from: `"fimihub" <${process.env.EMAIL_USER}>`,
+    from: `"FimiHub" <${process.env.EMAIL_USER}>`,
     to,
-    subject: 'Verify your fimihub email address',
-    html: emailShell({ previewText: 'Confirm your email to activate your fimihub account.', bodyHtml: body }),
+    subject: 'Verify your FimiHub email address',
+    html: emailShell({ previewText: 'Confirm your email to activate your FimiHub account.', bodyHtml: body }),
   })
 }
 
@@ -109,7 +109,7 @@ export async function sendPasswordResetEmail(
   const body = `
     <h1 style="margin:0 0 12px;color:#111827;font-size:22px;font-weight:700;line-height:1.3;">Reset your password</h1>
     <p style="margin:0 0 20px;color:#4b5563;font-size:15px;line-height:1.6;">
-      Hi ${name || 'there'}, we received a request to reset the password for your fimihub account. Click the button below to choose a new one.
+      Hi ${name || 'there'}, we received a request to reset the password for your FimiHub account. Click the button below to choose a new one.
     </p>
     <div style="text-align:center;margin:28px 0;">
       ${ctaButton(resetUrl, 'Reset password')}
@@ -118,18 +118,18 @@ export async function sendPasswordResetEmail(
       This link will expire in 1 hour. If you didn't request a password reset, you can safely ignore this email — your password won't change.
     </p>`
   await transporter.sendMail({
-    from: `"fimihub" <${process.env.EMAIL_USER}>`,
+    from: `"FimiHub" <${process.env.EMAIL_USER}>`,
     to,
-    subject: 'Reset your fimihub password',
-    html: emailShell({ previewText: 'Reset your fimihub password.', bodyHtml: body }),
+    subject: 'Reset your FimiHub password',
+    html: emailShell({ previewText: 'Reset your FimiHub password.', bodyHtml: body }),
   })
 }
 
 export async function sendWelcomeEmail(to: string, name: string, siteUrl?: string) {
   const transporter = getTransporter()
-  const dashboardUrl = `${siteUrl || process.env.NEXT_PUBLIC_SITE_URL || 'https://fimihub.com'}/dashboard`
+  const dashboardUrl = `${siteUrl || process.env.NEXT_PUBLIC_SITE_URL || 'https://FimiHub.com'}/dashboard`
   const body = `
-    <h1 style="margin:0 0 12px;color:#111827;font-size:22px;font-weight:700;line-height:1.3;">Welcome to fimihub, ${name}</h1>
+    <h1 style="margin:0 0 12px;color:#111827;font-size:22px;font-weight:700;line-height:1.3;">Welcome to FimiHub, ${name}</h1>
     <p style="margin:0 0 20px;color:#4b5563;font-size:15px;line-height:1.6;">
       Your account is now active. You can post ad spaces, browse listings, and connect with buyers and sellers — built for students and business owners.
     </p>
@@ -143,10 +143,10 @@ export async function sendWelcomeEmail(to: string, name: string, siteUrl?: strin
       ${ctaButton(dashboardUrl, 'Go to dashboard')}
     </div>`
   await transporter.sendMail({
-    from: `"fimihub" <${process.env.EMAIL_USER}>`,
+    from: `"FimiHub" <${process.env.EMAIL_USER}>`,
     to,
-    subject: 'Welcome to fimihub',
-    html: emailShell({ previewText: 'Your fimihub account is now active.', bodyHtml: body }),
+    subject: 'Welcome to FimiHub',
+    html: emailShell({ previewText: 'Your FimiHub account is now active.', bodyHtml: body }),
   })
 }
 
@@ -162,7 +162,7 @@ export async function sendCustomRequestEmail(input: {
   quantity?: number | null
 }) {
   const transporter = getTransporter()
-  const dashboardUrl = `${process.env.NEXT_PUBLIC_SITE_URL || 'https://fimihub.com'}/dashboard?tab=requests`
+  const dashboardUrl = `${process.env.NEXT_PUBLIC_SITE_URL || 'https://FimiHub.com'}/dashboard?tab=requests`
   const rows: string[] = []
   if (input.quantity) rows.push(`<tr><td style="padding:4px 0;color:#6b7280;font-size:13px;width:120px;">Quantity</td><td style="padding:4px 0;color:#111827;font-size:14px;font-weight:500;">${input.quantity}</td></tr>`)
   if (input.budget) rows.push(`<tr><td style="padding:4px 0;color:#6b7280;font-size:13px;">Budget</td><td style="padding:4px 0;color:#111827;font-size:14px;font-weight:500;">&#8358;${Number(input.budget).toLocaleString()}</td></tr>`)
@@ -182,7 +182,7 @@ export async function sendCustomRequestEmail(input: {
       ${ctaButton(dashboardUrl, 'View in dashboard')}
     </div>`
   await transporter.sendMail({
-    from: `"fimihub" <${process.env.EMAIL_USER}>`,
+    from: `"FimiHub" <${process.env.EMAIL_USER}>`,
     to: input.to,
     replyTo: input.buyerEmail,
     subject: `New custom request — ${input.adTitle}`,
@@ -202,13 +202,13 @@ export async function sendOrderEmails(input: {
   buyerPhone?: string | null
 }) {
   const transporter = getTransporter()
-  const orderUrl = `${process.env.NEXT_PUBLIC_SITE_URL || 'https://fimihub.com'}/orders/${input.reference}`
-  const dashboardUrl = `${process.env.NEXT_PUBLIC_SITE_URL || 'https://fimihub.com'}/revenue`
+  const orderUrl = `${process.env.NEXT_PUBLIC_SITE_URL || 'https://FimiHub.com'}/orders/${input.reference}`
+  const dashboardUrl = `${process.env.NEXT_PUBLIC_SITE_URL || 'https://FimiHub.com'}/revenue`
 
   const buyerBody = `
     <h1 style="margin:0 0 12px;color:#111827;font-size:22px;font-weight:700;">Payment received, ${input.buyerName}</h1>
     <p style="margin:0 0 16px;color:#4b5563;font-size:15px;line-height:1.6;">
-      Thanks for your order on fimihub. The seller has been notified and will reach out shortly.
+      Thanks for your order on FimiHub. The seller has been notified and will reach out shortly.
     </p>
     <div style="background:#f9fafb;border:1px solid #e5e7eb;border-radius:10px;padding:16px;margin:0 0 20px;">
       <p style="margin:0 0 8px;color:#6b7280;font-size:13px;">${input.adTitle}</p>
@@ -232,16 +232,16 @@ export async function sendOrderEmails(input: {
 
   await Promise.all([
     transporter.sendMail({
-      from: `"fimihub" <${process.env.EMAIL_USER}>`,
+      from: `"FimiHub" <${process.env.EMAIL_USER}>`,
       to: input.buyerEmail,
       subject: `Order confirmation — ${input.adTitle}`,
-      html: emailShell({ previewText: `Your fimihub order is confirmed.`, bodyHtml: buyerBody }),
+      html: emailShell({ previewText: `Your FimiHub order is confirmed.`, bodyHtml: buyerBody }),
     }),
     transporter.sendMail({
-      from: `"fimihub" <${process.env.EMAIL_USER}>`,
+      from: `"FimiHub" <${process.env.EMAIL_USER}>`,
       to: input.sellerEmail,
       replyTo: input.buyerEmail,
-      subject: `New sale on fimihub — ${input.adTitle}`,
+      subject: `New sale on FimiHub — ${input.adTitle}`,
       html: emailShell({ previewText: `${input.buyerName} just paid for ${input.adTitle}.`, bodyHtml: sellerBody }),
     }),
   ])
