@@ -43,7 +43,7 @@ export default function PostCard({ ad, savedByUser = false, currentUserId = null
   const cat = categoryConfig[ad.category] ?? categoryConfig.products
   const Icon = cat.icon
   const avatarColor = getAvatarColor(ad.profiles?.full_name || ad.user_id)
-  const posterName = ad.profiles?.full_name || 'FimiHub User'
+  const posterName = ad.profiles?.full_name || 'fimihub User'
   const media = ad.media || []
   const firstMedia = media[0]
   const isVideo = firstMedia?.type === 'video'
@@ -127,7 +127,9 @@ export default function PostCard({ ad, savedByUser = false, currentUserId = null
             <div>
               <div className="flex items-center gap-1">
                 <span className="font-semibold text-sm">{posterName}</span>
-                <BadgeCheck className="w-3.5 h-3.5 text-primary" />
+                {ad.profiles?.email_verified && (
+                  <BadgeCheck className="w-3.5 h-3.5 text-primary" aria-label="Verified seller" />
+                )}
               </div>
               <div className="flex items-center gap-1 mt-0.5 text-xs text-muted-foreground">
                 <MapPin className="w-3 h-3 shrink-0" />

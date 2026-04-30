@@ -258,12 +258,34 @@ export default function DiscoverClient({ initialAds, currentUserId = null }: { i
           <div className="bg-primary rounded-2xl p-5 text-primary-foreground shadow-md">
             <div className="flex items-center gap-2 mb-1.5">
               <Sparkles className="w-4 h-4" />
-              <span className="font-semibold text-sm">Ready to advertise?</span>
+              <span className="font-semibold text-sm">Built for students &amp; business owners</span>
             </div>
-            <p className="text-xs opacity-75 mb-4 leading-relaxed">Post your ad space free and reach thousands of buyers today.</p>
+            <p className="text-xs opacity-75 mb-4 leading-relaxed">Post free, get verified, and reach real buyers in minutes — no fees on your first 3 listings.</p>
             <Link href="/post">
               <Button variant="secondary" size="sm" className="w-full font-semibold shadow-sm">Post an Ad Space</Button>
             </Link>
+          </div>
+
+          <div className="glass rounded-2xl p-4 shadow-sm">
+            <span className="font-semibold text-sm block mb-3">Why fimihub</span>
+            <ul className="space-y-2 text-xs text-muted-foreground leading-relaxed">
+              <li className="flex items-start gap-2">
+                <span className="mt-1 w-1.5 h-1.5 rounded-full bg-primary shrink-0" />
+                Verified sellers — look for the blue check.
+              </li>
+              <li className="flex items-start gap-2">
+                <span className="mt-1 w-1.5 h-1.5 rounded-full bg-primary shrink-0" />
+                Secure checkout with escrow-style payouts.
+              </li>
+              <li className="flex items-start gap-2">
+                <span className="mt-1 w-1.5 h-1.5 rounded-full bg-primary shrink-0" />
+                Direct chat with the seller — no middlemen.
+              </li>
+              <li className="flex items-start gap-2">
+                <span className="mt-1 w-1.5 h-1.5 rounded-full bg-primary shrink-0" />
+                Lower fees so more of every sale stays with you.
+              </li>
+            </ul>
           </div>
 
           <div className="glass rounded-2xl p-4 shadow-sm">

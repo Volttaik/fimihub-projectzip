@@ -64,8 +64,8 @@ export default function Header() {
             className="flex items-center gap-2 shrink-0 mr-2 group transition-transform duration-200 hover:scale-[1.03] active:scale-95"
           >
             <FimiLogo className="transition-shadow duration-200 group-hover:shadow-lg" />
-            <span className="font-bold text-lg tracking-tight leading-none">
-              Fimi<span className="text-primary">Hub</span>
+            <span className="font-bold text-lg tracking-tight leading-none lowercase">
+              fimi<span className="text-primary">hub</span>
             </span>
           </Link>
 

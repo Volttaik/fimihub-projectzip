@@ -3,16 +3,17 @@ import './globals.css'
 import { Toaster } from 'sonner'
 import Header from '@/components/Header'
 import PWARegister from '@/components/PWARegister'
+import InstallPrompt from '@/components/InstallPrompt'
 
 export const metadata: Metadata = {
-  title: 'FimiHub — African Marketplace',
-  description: 'Buy, sell, rent and advertise on FimiHub — the marketplace built for Africa.',
-  keywords: 'marketplace, ads, buy, sell, africa, lagos, accra, nairobi',
+  title: 'fimihub — the marketplace for students & business owners',
+  description: 'Buy, sell, rent and advertise on fimihub — the trusted marketplace built for students and business owners.',
+  keywords: 'marketplace, ads, buy, sell, students, business, rentals, services',
   manifest: '/manifest.webmanifest',
-  applicationName: 'FimiHub',
+  applicationName: 'fimihub',
   appleWebApp: {
     capable: true,
-    title: 'FimiHub',
+    title: 'fimihub',
     statusBarStyle: 'black-translucent',
   },
   formatDetection: {
@@ -49,6 +50,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           }}
         />
         <PWARegister />
+        <InstallPrompt />
       </body>
     </html>
   )

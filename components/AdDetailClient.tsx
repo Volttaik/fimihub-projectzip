@@ -230,7 +230,7 @@ export default function AdDetailClient({ ad, similar, currentUserId }: Props) {
     }
   }
 
-  const posterName = ad.profiles?.full_name || 'FimiHub User'
+  const posterName = ad.profiles?.full_name || 'fimihub User'
 
   return (
     <div className="container mx-auto px-4 py-6 max-w-5xl">
@@ -352,7 +352,7 @@ export default function AdDetailClient({ ad, similar, currentUserId }: Props) {
             </Button>
             <ShareMenu
               title={ad.title}
-              text={`Check out "${ad.title}" on FimiHub${ad.location ? ` — ${ad.location}` : ''}`}
+              text={`Check out "${ad.title}" on fimihub${ad.location ? ` — ${ad.location}` : ''}`}
               className="flex-1"
             />
           </div>

@@ -2,17 +2,17 @@ import type { MetadataRoute } from 'next'
 
 export default function manifest(): MetadataRoute.Manifest {
   return {
-    name: 'FimiHub — African Marketplace',
-    short_name: 'FimiHub',
+    name: 'fimihub — students & business owners marketplace',
+    short_name: 'fimihub',
     description:
-      'Buy, sell, rent and advertise on FimiHub — the marketplace built for Africa.',
+      'Buy, sell, rent and advertise on fimihub — the trusted marketplace built for students and business owners.',
     start_url: '/',
     scope: '/',
     display: 'standalone',
     orientation: 'portrait',
     background_color: '#f6efe2',
     theme_color: '#7b3fe4',
-    categories: ['shopping', 'business', 'lifestyle'],
+    categories: ['shopping', 'business', 'lifestyle', 'education'],
     icons: [
       {
         src: '/icon.svg',

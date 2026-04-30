@@ -1,6 +1,10 @@
-# FimiHub
+# fimihub
 
-Next.js 15 marketplace app for Nigerian users to post and discover ad spaces (products, services, rentals, business). Uses Supabase for auth/database/storage and Paystack for payments.
+Next.js 15 marketplace app for **students and business owners** to post and discover ad spaces (products, services, rentals, business). Uses Supabase for auth/database/storage and Paystack for payments.
+
+## Brand
+- Name is always lowercase: `fimihub` (no camel case in UI, copy, emails, manifest, or metadata).
+- Positioning: trusted marketplace for students & business owners. Do **not** use region-specific framing (e.g. "African marketplace").
 
 ## Stack
 - Next.js 15 (App Router) + React 19 + TypeScript

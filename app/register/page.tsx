@@ -162,7 +162,7 @@ export default function RegisterPage() {
             </p>
             <div className="bg-primary/5 rounded-2xl p-4 mb-6 text-left space-y-2">
               <p className="text-xs font-semibold text-primary">What's next?</p>
-              {['Check your inbox (and spam)', 'Click the verification link', 'Start posting on FimiHub!'].map((t, i) => (
+              {['Check your inbox (and spam)', 'Click the verification link', 'Start posting on fimihub!'].map((t, i) => (
                 <div key={i} className="flex items-center gap-2 text-sm text-muted-foreground">
                   <span className="w-5 h-5 rounded-full bg-primary/20 text-primary text-xs font-bold flex items-center justify-center shrink-0">{i+1}</span>
                   {t}
