@@ -564,12 +564,13 @@ export default function AdDetailClient({ ad, similar, currentUserId }: Props) {
       {similar.length > 0 && (
         <div className="mt-10">
           <h2 className="text-lg font-bold mb-4">Similar Ad Spaces</h2>
-          <div className="flex gap-4 overflow-x-auto pb-3 -mx-4 px-4 snap-x snap-mandatory">
+          <div className="flex items-stretch gap-4 overflow-x-auto pb-4 snap-x snap-mandatory scroll-smooth -mx-4 px-4 [scrollbar-width:thin]">
             {similar.map(s => (
-              <div key={s.id} className="flex-shrink-0 w-64 sm:w-72 snap-start">
+              <div key={s.id} className="flex-shrink-0 w-[78%] xs:w-72 sm:w-72 snap-start flex">
                 <PostCard ad={s} currentUserId={currentUserId} />
               </div>
             ))}
+            <div className="flex-shrink-0 w-1" aria-hidden />
           </div>
         </div>
       )}

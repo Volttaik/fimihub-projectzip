@@ -109,7 +109,7 @@ export default function PostCard({ ad, savedByUser = false, currentUserId = null
   }
 
   return (
-    <article className="glass rounded-2xl overflow-hidden shadow-sm hover:shadow-md transition-all duration-300 group/card animate-in-up">
+    <article className="glass rounded-2xl overflow-hidden shadow-sm hover:shadow-md transition-all duration-300 group/card animate-in-up h-full flex flex-col">
       {ad.featured && (
         <div className="flex items-center gap-1.5 px-4 pt-3">
           <Star className="w-3 h-3 text-accent fill-accent" />
@@ -197,7 +197,7 @@ export default function PostCard({ ad, savedByUser = false, currentUserId = null
         </div>
       )}
 
-      <div className="flex items-center border-t border-border/60 px-1">
+      <div className="flex items-center border-t border-border/60 px-1 mt-auto">
         <button onClick={openComment}
           className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-primary transition-colors px-3 py-2.5 rounded-xl hover:bg-primary/8 flex-1 justify-center">
           <MessageCircle className="w-4 h-4" />
