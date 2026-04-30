@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
 import { Label } from '@/components/ui/label'
-import { MapPin, Eye, Heart, Phone, Mail, ChevronLeft, ChevronRight, BadgeCheck, Zap, Calendar, ArrowLeft, ShoppingCart, Package, Loader2, MessageSquarePlus, CheckCircle2, Minus, Plus, ClipboardList, MessageCircle, Images, PlayCircle, Tag, Edit2, Truck } from 'lucide-react'
+import { MapPin, Eye, Heart, Phone, Mail, ChevronLeft, ChevronRight, BadgeCheck, Zap, Calendar, ArrowLeft, ShoppingCart, Package, Loader2, MessageSquarePlus, CheckCircle2, Minus, Plus, ClipboardList, Edit2, MessageCircle, Truck, PlayCircle, Images } from 'lucide-react'
 import type { Ad } from '@/lib/supabase/types'
 import { formatPrice, timeAgo, getInitials } from '@/lib/utils'
 import PostCard from '@/components/PostCard'
@@ -358,16 +358,6 @@ export default function AdDetailClient({ ad, similar, currentUserId }: Props) {
           </div>
 
           <CommentsSection adId={ad.id} currentUserId={currentUserId} />
-
-          {/* Similar ads */}
-          {similar.length > 0 && (
-            <div>
-              <h2 className="text-lg font-bold mb-4">Similar Ad Spaces</h2>
-              <div className="flex flex-col gap-3">
-                {similar.map(s => <PostCard key={s.id} ad={s} currentUserId={currentUserId} />)}
-              </div>
-            </div>
-          )}
         </div>
 
         {/* Sidebar — contact card */}
@@ -567,6 +557,16 @@ export default function AdDetailClient({ ad, similar, currentUserId }: Props) {
               </div>
             </div>
           </div>
+
+          {/* Similar ads - moved below contact card */}
+          {similar.length > 0 && (
+            <div className="mt-8">
+              <h2 className="text-lg font-bold mb-4">Similar Ad Spaces</h2>
+              <div className="flex flex-col gap-3">
+                {similar.map(s => <PostCard key={s.id} ad={s} currentUserId={currentUserId} />)}
+              </div>
+            </div>
+          )}
         </div>
       </div>
 
