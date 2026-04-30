@@ -557,18 +557,22 @@ export default function AdDetailClient({ ad, similar, currentUserId }: Props) {
               </div>
             </div>
           </div>
-
-          {/* Similar ads - moved below contact card */}
-          {similar.length > 0 && (
-            <div className="mt-8">
-              <h2 className="text-lg font-bold mb-4">Similar Ad Spaces</h2>
-              <div className="flex flex-col gap-3">
-                {similar.map(s => <PostCard key={s.id} ad={s} currentUserId={currentUserId} />)}
-              </div>
-            </div>
-          )}
         </div>
       </div>
+
+      {/* Similar ads - full width at bottom, horizontal scroll */}
+      {similar.length > 0 && (
+        <div className="mt-10">
+          <h2 className="text-lg font-bold mb-4">Similar Ad Spaces</h2>
+          <div className="flex gap-4 overflow-x-auto pb-3 -mx-4 px-4 snap-x snap-mandatory">
+            {similar.map(s => (
+              <div key={s.id} className="flex-shrink-0 w-64 sm:w-72 snap-start">
+                <PostCard ad={s} currentUserId={currentUserId} />
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {reqOpen && (
         <div className="fixed inset-0 z-50 bg-black/60 flex items-center justify-center p-4" onClick={() => !reqLoading && setReqOpen(false)}>
