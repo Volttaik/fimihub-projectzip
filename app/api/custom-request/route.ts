@@ -1,11 +1,10 @@
 import { NextResponse } from 'next/server'
-import { createClient } from '@/lib/supabase/server'
-import { createAdminClient } from '@/lib/supabase/admin'
+import { getUserFromRequest } from '@/lib/auth'
 import { sendCustomRequestEmail } from '@/lib/email'
+import pool from '@/lib/db'
 
 export async function POST(req: Request) {
-  const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
+  const user = await getUserFromRequest(req as any)
   if (!user) return NextResponse.json({ error: 'You must be logged in to send a request' }, { status: 401 })
 
   const { ad_id, buyer_name, buyer_email, buyer_phone, message, budget, quantity } = await req.json()
@@ -13,75 +12,55 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: 'Missing required fields' }, { status: 400 })
   }
 
-  const admin = createAdminClient()
-  const { data: ad } = await admin
-    .from('ads')
-    .select('id, user_id, title')
-    .eq('id', ad_id)
-    .single()
-  if (!ad) return NextResponse.json({ error: 'Ad not found' }, { status: 404 })
-  if (ad.user_id === user.id) return NextResponse.json({ error: "You can't request your own ad" }, { status: 400 })
+  try {
+    const { rows: adRows } = await pool.query(`SELECT id, user_id, title FROM ads WHERE id = $1 LIMIT 1`, [ad_id])
+    if (!adRows.length) return NextResponse.json({ error: 'Ad not found' }, { status: 404 })
+    const ad = adRows[0]
+    if (ad.user_id === user.id) return NextResponse.json({ error: "You can't request your own ad" }, { status: 400 })
 
-  const { data: cr, error } = await admin.from('custom_requests').insert({
-    ad_id: ad.id,
-    seller_id: ad.user_id,
-    buyer_id: user.id,
-    buyer_name,
-    buyer_email,
-    buyer_phone: buyer_phone || null,
-    message,
-    budget: budget ? Number(budget) : null,
-    quantity: quantity ? Number(quantity) : null,
-  } as any).select('id').single()
-  if (error || !cr) return NextResponse.json({ error: error?.message || 'Could not create request' }, { status: 500 })
+    const { rows: crRows } = await pool.query(
+      `INSERT INTO custom_requests (ad_id, seller_id, buyer_id, buyer_name, buyer_email, buyer_phone, message, budget, quantity)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9) RETURNING id`,
+      [ad.id, ad.user_id, user.id, buyer_name, buyer_email, buyer_phone || null, message, budget ? Number(budget) : null, quantity ? Number(quantity) : null]
+    )
+    const crId = crRows[0].id
 
-  // Open a conversation thread for this request
-  const { data: convo } = await admin
-    .from('conversations')
-    .insert({
-      ad_id: ad.id,
-      buyer_id: user.id,
-      seller_id: ad.user_id,
-      kind: 'request',
-      reference_id: cr.id,
-      subject: `Request: ${ad.title}`,
-    } as any)
-    .select('id')
-    .single()
+    const { rows: convoRows } = await pool.query(
+      `INSERT INTO conversations (ad_id, buyer_id, seller_id, kind, reference_id, subject)
+       VALUES ($1,$2,$3,'request',$4,$5) RETURNING id`,
+      [ad.id, user.id, ad.user_id, crId, `Request: ${ad.title}`]
+    )
+    const conversationId = convoRows[0].id
 
-  if (convo) {
-    const opening =
-      `Custom request${quantity ? ` (qty: ${quantity})` : ''}${budget ? ` — budget ₦${Number(budget).toLocaleString()}` : ''}\n\n${message}`
-    await admin.from('messages').insert({
-      conversation_id: convo.id,
-      sender_id: user.id,
-      body: opening,
-    } as any)
-  }
+    const opening = `Custom request${quantity ? ` (qty: ${quantity})` : ''}${budget ? ` — budget ₦${Number(budget).toLocaleString()}` : ''}\n\n${message}`
+    await pool.query(
+      `INSERT INTO messages (conversation_id, sender_id, body) VALUES ($1,$2,$3)`,
+      [conversationId, user.id, opening]
+    )
+    await pool.query(`UPDATE conversations SET last_message_at = NOW() WHERE id = $1`, [conversationId])
 
-  const { data: seller } = await admin
-    .from('profiles')
-    .select('email, full_name')
-    .eq('id', ad.user_id)
-    .single()
-
-  if (seller?.email) {
-    try {
-      await sendCustomRequestEmail({
-        to: seller.email,
-        sellerName: seller.full_name || 'there',
-        adTitle: ad.title,
-        buyerName: buyer_name,
-        buyerEmail: buyer_email,
-        buyerPhone: buyer_phone,
-        message,
-        budget,
-        quantity,
-      })
-    } catch (e) {
-      console.error('Failed to email seller:', e)
+    const { rows: sellerRows } = await pool.query(`SELECT email, full_name FROM profiles WHERE id = $1 LIMIT 1`, [ad.user_id])
+    const seller = sellerRows[0]
+    if (seller?.email) {
+      try {
+        await sendCustomRequestEmail({
+          to: seller.email,
+          sellerName: seller.full_name || 'there',
+          adTitle: ad.title,
+          buyerName: buyer_name,
+          buyerEmail: buyer_email,
+          buyerPhone: buyer_phone,
+          message,
+          budget,
+          quantity,
+        })
+      } catch (e) {
+        console.error('Failed to email seller:', e)
+      }
     }
-  }
 
-  return NextResponse.json({ ok: true })
+    return NextResponse.json({ ok: true })
+  } catch (e: any) {
+    return NextResponse.json({ error: e?.message || 'Failed to submit request' }, { status: 500 })
+  }
 }

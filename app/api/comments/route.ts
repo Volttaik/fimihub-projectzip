@@ -1,25 +1,30 @@
-import { NextRequest, NextResponse } from 'next/server'
-import { createClient } from '@/lib/supabase/server'
+import { NextResponse } from 'next/server'
+import type { NextRequest } from 'next/server'
+import { getUserFromRequest } from '@/lib/auth'
+import pool from '@/lib/db'
 
 export async function GET(req: NextRequest) {
   const adId = req.nextUrl.searchParams.get('adId')
   if (!adId) return NextResponse.json({ error: 'adId required' }, { status: 400 })
 
-  const supabase = await createClient()
-  const { data, error } = await supabase
-    .from('comments')
-    .select('id, body, created_at, user_id, profiles:user_id (id, full_name, avatar_url)')
-    .eq('ad_id', adId)
-    .order('created_at', { ascending: false })
-    .limit(200)
-
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 })
-  return NextResponse.json({ comments: data || [] })
+  try {
+    const { rows } = await pool.query(`
+      SELECT c.id, c.body, c.created_at, c.user_id,
+        json_build_object('id', p.id, 'full_name', p.full_name, 'avatar_url', p.avatar_url) AS profiles
+      FROM comments c
+      LEFT JOIN profiles p ON p.id = c.user_id
+      WHERE c.ad_id = $1
+      ORDER BY c.created_at DESC
+      LIMIT 200
+    `, [adId])
+    return NextResponse.json({ comments: rows })
+  } catch (e: any) {
+    return NextResponse.json({ error: e.message }, { status: 500 })
+  }
 }
 
 export async function POST(req: NextRequest) {
-  const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
+  const user = await getUserFromRequest(req)
   if (!user) return NextResponse.json({ error: 'Sign in to comment' }, { status: 401 })
 
   const { adId, body } = await req.json().catch(() => ({}))
@@ -30,25 +35,37 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Comment too long (max 1000 chars)' }, { status: 400 })
   }
 
-  const { data, error } = await supabase
-    .from('comments')
-    .insert({ ad_id: adId, user_id: user.id, body: body.trim() })
-    .select('id, body, created_at, user_id, profiles:user_id (id, full_name, avatar_url)')
-    .single()
-
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 })
-  return NextResponse.json({ comment: data })
+  try {
+    const { rows } = await pool.query(`
+      WITH inserted AS (
+        INSERT INTO comments (ad_id, user_id, body) VALUES ($1, $2, $3) RETURNING *
+      )
+      SELECT i.*,
+        json_build_object('id', p.id, 'full_name', p.full_name, 'avatar_url', p.avatar_url) AS profiles
+      FROM inserted i
+      LEFT JOIN profiles p ON p.id = i.user_id
+    `, [adId, user.id, body.trim()])
+    return NextResponse.json({ comment: rows[0] })
+  } catch (e: any) {
+    return NextResponse.json({ error: e.message }, { status: 500 })
+  }
 }
 
 export async function DELETE(req: NextRequest) {
-  const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
+  const user = await getUserFromRequest(req)
   if (!user) return NextResponse.json({ error: 'Sign in required' }, { status: 401 })
 
   const id = req.nextUrl.searchParams.get('id')
   if (!id) return NextResponse.json({ error: 'id required' }, { status: 400 })
 
-  const { error } = await supabase.from('comments').delete().eq('id', id).eq('user_id', user.id)
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 })
-  return NextResponse.json({ success: true })
+  try {
+    const { rowCount } = await pool.query(
+      `DELETE FROM comments WHERE id = $1 AND user_id = $2`,
+      [id, user.id]
+    )
+    if (!rowCount) return NextResponse.json({ error: 'Comment not found' }, { status: 404 })
+    return NextResponse.json({ success: true })
+  } catch (e: any) {
+    return NextResponse.json({ error: e.message }, { status: 500 })
+  }
 }

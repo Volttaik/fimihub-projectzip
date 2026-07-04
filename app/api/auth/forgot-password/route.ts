@@ -2,9 +2,9 @@ import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
 import crypto from 'crypto'
 import { sendPasswordResetEmail } from '@/lib/email'
-import { createAdminClient } from '@/lib/supabase/admin'
+import pool from '@/lib/db'
 
-const TOKEN_LIFETIME_MINUTES = 60
+const TOKEN_LIFETIME_HOURS = 2
 
 function getOrigin(request: NextRequest) {
   if (process.env.NEXT_PUBLIC_SITE_URL) return process.env.NEXT_PUBLIC_SITE_URL
@@ -21,42 +21,36 @@ export async function POST(request: NextRequest) {
     }
 
     const origin = getOrigin(request)
-    const admin = createAdminClient()
-    const normalisedEmail = email.trim().toLowerCase()
+    const normalised = email.trim().toLowerCase()
 
-    const { data: profile } = await admin
-      .from('profiles')
-      .select('id, full_name, email')
-      .ilike('email', normalisedEmail)
-      .maybeSingle()
+    const { rows } = await pool.query(
+      `SELECT id, full_name, email FROM profiles WHERE LOWER(email) = $1 LIMIT 1`,
+      [normalised]
+    )
+    // Always return success to avoid email enumeration
+    if (!rows.length) return NextResponse.json({ success: true })
 
-    if (profile) {
-      const token = crypto.randomBytes(32).toString('hex')
-      const expiresAt = new Date(Date.now() + TOKEN_LIFETIME_MINUTES * 60 * 1000).toISOString()
+    const profile = rows[0]
+    const token = crypto.randomBytes(32).toString('hex')
+    const expiresAt = new Date(Date.now() + TOKEN_LIFETIME_HOURS * 3600 * 1000).toISOString()
 
-      const { error: tokenError } = await admin
-        .from('password_reset_tokens' as any)
-        .insert({ user_id: profile.id, token, expires_at: expiresAt })
+    await pool.query(
+      `INSERT INTO password_reset_tokens (user_id, token, expires_at) VALUES ($1, $2, $3)`,
+      [profile.id, token, expiresAt]
+    )
 
-      if (tokenError) {
-        console.error('Reset token insert failed:', tokenError)
-        return NextResponse.json({ error: 'Could not create reset link' }, { status: 500 })
-      }
-
-      const resetUrl = `${origin}/reset-password?token=${token}`
-
-      if (!process.env.EMAIL_USER || !process.env.EMAIL_APP_PASSWORD) {
-        console.error('Email service not configured for password reset')
-      } else {
-        try {
-          await sendPasswordResetEmail(profile.email, profile.full_name || '', resetUrl)
-        } catch (e) {
-          console.error('Password reset email failed:', e)
-        }
-      }
+    if (!process.env.EMAIL_USER || !process.env.EMAIL_APP_PASSWORD) {
+      return NextResponse.json({ success: true, warning: 'Email not configured' })
     }
 
-    // Always return success to prevent email enumeration
+    const resetUrl = `${origin}/reset-password?token=${token}`
+    try {
+      await sendPasswordResetEmail(profile.email, profile.full_name || 'there', resetUrl)
+    } catch (e) {
+      console.error('Reset email failed:', e)
+      return NextResponse.json({ error: 'Could not send reset email' }, { status: 500 })
+    }
+
     return NextResponse.json({ success: true })
   } catch (err) {
     console.error('Forgot password error:', err)

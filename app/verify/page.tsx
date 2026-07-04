@@ -1,7 +1,7 @@
 import Link from 'next/link'
 import { CheckCircle2, AlertTriangle, ArrowRight } from 'lucide-react'
 import { Button } from '@/components/ui/button'
-import { createAdminClient } from '@/lib/supabase/admin'
+import pool from '@/lib/db'
 import { sendWelcomeEmail } from '@/lib/email'
 import { headers } from 'next/headers'
 
@@ -14,51 +14,40 @@ type VerifyResult =
 async function verifyToken(token: string | undefined): Promise<VerifyResult> {
   if (!token) return { ok: false, reason: 'missing' }
 
-  const admin = createAdminClient()
-
-  const { data: row, error } = await admin
-    .from('email_verification_tokens' as any)
-    .select('user_id, expires_at, used')
-    .eq('token', token)
-    .maybeSingle()
-
-  if (error || !row) return { ok: false, reason: 'invalid' }
-  const r = row as { user_id: string; expires_at: string; used: boolean }
-  if (r.used) return { ok: false, reason: 'used' }
-  if (new Date(r.expires_at).getTime() < Date.now()) return { ok: false, reason: 'expired' }
-
-  // Confirm the user in Supabase (silently)
-  const { data: updated, error: updateError } = await admin.auth.admin.updateUserById(r.user_id, {
-    email_confirm: true,
-  })
-  if (updateError || !updated?.user) return { ok: false, reason: 'error' }
-
-  // Mark token used and profile verified
-  await admin.from('email_verification_tokens' as any).update({ used: true }).eq('token', token)
-  await admin.from('profiles').update({ email_verified: true }).eq('id', r.user_id)
-
-  // Send welcome email (non-blocking on failure)
   try {
-    const profile = await admin.from('profiles').select('full_name, email').eq('id', r.user_id).single()
-    if (profile.data?.email) {
+    const { rows } = await pool.query(
+      `SELECT id, user_id, expires_at, used FROM email_verification_tokens WHERE token = $1 LIMIT 1`,
+      [token]
+    )
+    if (!rows.length) return { ok: false, reason: 'invalid' }
+    const row = rows[0]
+    if (row.used) return { ok: false, reason: 'used' }
+    if (new Date(row.expires_at).getTime() < Date.now()) return { ok: false, reason: 'expired' }
+
+    await pool.query(`UPDATE profiles SET email_verified = TRUE WHERE id = $1`, [row.user_id])
+    await pool.query(`UPDATE email_verification_tokens SET used = TRUE WHERE id = $1`, [row.id])
+
+    const { rows: pRows } = await pool.query(`SELECT email, full_name FROM profiles WHERE id = $1`, [row.user_id])
+    const profile = pRows[0]
+
+    try {
       const h = await headers()
       const host = h.get('x-forwarded-host') || h.get('host') || ''
       const proto = h.get('x-forwarded-proto') || 'https'
       const origin = process.env.NEXT_PUBLIC_SITE_URL || (host ? `${proto}://${host}` : undefined)
-      await sendWelcomeEmail(profile.data.email, profile.data.full_name || 'there', origin)
+      if (profile?.email) await sendWelcomeEmail(profile.email, profile.full_name || 'there', origin)
+    } catch (e) {
+      console.error('Welcome email failed:', e)
     }
-  } catch (e) {
-    console.error('Welcome email failed:', e)
-  }
 
-  return { ok: true, email: updated.user.email || '' }
+    return { ok: true, email: profile?.email || '' }
+  } catch (e) {
+    console.error('Verify token error:', e)
+    return { ok: false, reason: 'error' }
+  }
 }
 
-export default async function VerifyPage({
-  searchParams,
-}: {
-  searchParams: Promise<{ token?: string }>
-}) {
+export default async function VerifyPage({ searchParams }: { searchParams: Promise<{ token?: string }> }) {
   const params = await searchParams
   const result = await verifyToken(params.token)
 
@@ -75,9 +64,7 @@ export default async function VerifyPage({
               Welcome to FimiHub{result.email ? `, ${result.email}` : ''}. Your account is now active.
             </p>
             <Link href="/login">
-              <Button className="w-full gap-2">
-                Sign in <ArrowRight className="w-4 h-4" />
-              </Button>
+              <Button className="w-full gap-2">Sign in <ArrowRight className="w-4 h-4" /></Button>
             </Link>
           </div>
         </div>
@@ -104,12 +91,8 @@ export default async function VerifyPage({
           <h1 className="text-2xl font-bold mb-2">{m.title}</h1>
           <p className="text-muted-foreground leading-relaxed mb-6">{m.body}</p>
           <div className="flex flex-col gap-2">
-            <Link href="/login">
-              <Button className="w-full">Go to Sign In</Button>
-            </Link>
-            <Link href="/register">
-              <Button variant="outline" className="w-full">Create a new account</Button>
-            </Link>
+            <Link href="/login"><Button className="w-full">Go to Sign In</Button></Link>
+            <Link href="/register"><Button variant="outline" className="w-full">Create a new account</Button></Link>
           </div>
         </div>
       </div>

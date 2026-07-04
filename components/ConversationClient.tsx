@@ -5,70 +5,73 @@ import { useRouter } from 'next/navigation'
 import { ArrowLeft, Send, Loader2, ExternalLink } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import DashboardNav from '@/components/DashboardNav'
-import { createClient } from '@/lib/supabase/client'
 import { toast } from 'sonner'
 import type { Conversation, Message } from '@/lib/supabase/types'
+import { timeAgo } from '@/lib/utils'
 
 interface Props {
   conversation: Conversation & {
-    ad?: { id: string; title: string; price: number | null; price_type: string } | null
+    ad?: { id: string; title: string; media: any[]; price: number | null; price_type: string } | null
+    buyer?: { id: string; full_name: string | null; email: string; avatar_url: string | null } | null
+    seller?: { id: string; full_name: string | null; email: string; avatar_url: string | null } | null
   }
   initialMessages: Message[]
   currentUserId: string
 }
 
-const kindLabel: Record<string, string> = {
-  inquiry: 'Inquiry',
-  request: 'Custom request',
-  order: 'Order',
-}
-
-export default function ConversationClient({ conversation, initialMessages, currentUserId }: Props) {
+export default function ConversationClient({ conversation: convo, initialMessages, currentUserId }: Props) {
   const router = useRouter()
   const [messages, setMessages] = useState<Message[]>(initialMessages)
   const [body, setBody] = useState('')
   const [sending, setSending] = useState(false)
-  const supabase = createClient()
-  const scrollRef = useRef<HTMLDivElement>(null)
+  const bottomRef = useRef<HTMLDivElement>(null)
+  const lastTimestampRef = useRef<string>(initialMessages[initialMessages.length - 1]?.created_at ?? new Date(0).toISOString())
 
-  const isSeller = conversation.seller_id === currentUserId
-  const other = isSeller ? conversation.buyer : conversation.seller
+  const isBuyer = convo.buyer_id === currentUserId
+  const other = isBuyer ? convo.seller : convo.buyer
   const otherName = other?.full_name || other?.email || 'User'
 
+  // Poll for new messages every 3 seconds
   useEffect(() => {
-    scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: 'smooth' })
+    const poll = async () => {
+      try {
+        const res = await fetch(`/api/conversations/${convo.id}/messages?after=${encodeURIComponent(lastTimestampRef.current)}`)
+        if (!res.ok) return
+        const { messages: newMsgs } = await res.json()
+        if (newMsgs?.length) {
+          setMessages(prev => {
+            const existingIds = new Set(prev.map((m: Message) => m.id))
+            const fresh = newMsgs.filter((m: Message) => !existingIds.has(m.id))
+            if (!fresh.length) return prev
+            lastTimestampRef.current = fresh[fresh.length - 1].created_at
+            return [...prev, ...fresh]
+          })
+        }
+      } catch {}
+    }
+    const interval = setInterval(poll, 3000)
+    return () => clearInterval(interval)
+  }, [convo.id])
+
+  // Scroll to bottom when messages change
+  useEffect(() => {
+    bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [messages])
 
-  // Live updates via Supabase realtime
-  useEffect(() => {
-    const channel = supabase
-      .channel(`messages:${conversation.id}`)
-      .on(
-        'postgres_changes',
-        { event: 'INSERT', schema: 'public', table: 'messages', filter: `conversation_id=eq.${conversation.id}` },
-        (payload) => {
-          const m = payload.new as Message
-          setMessages(prev => (prev.find(x => x.id === m.id) ? prev : [...prev, m]))
-        }
-      )
-      .subscribe()
-    return () => { supabase.removeChannel(channel) }
-  }, [conversation.id])
-
-  const send = async (e: React.FormEvent) => {
+  const sendMessage = async (e: React.FormEvent) => {
     e.preventDefault()
-    const text = body.trim()
-    if (!text) return
+    if (!body.trim() || sending) return
     setSending(true)
     try {
-      const res = await fetch(`/api/conversations/${conversation.id}/messages`, {
+      const res = await fetch(`/api/conversations/${convo.id}/messages`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ body: text }),
+        body: JSON.stringify({ body: body.trim() }),
       })
-      const data = await res.json()
-      if (!res.ok) throw new Error(data.error || 'Could not send')
-      setMessages(prev => prev.find(x => x.id === data.message.id) ? prev : [...prev, data.message])
+      if (!res.ok) throw new Error((await res.json()).error || 'Could not send message')
+      const { message } = await res.json()
+      setMessages(prev => [...prev, message])
+      lastTimestampRef.current = message.created_at
       setBody('')
     } catch (err: any) {
       toast.error(err.message)
@@ -78,76 +81,58 @@ export default function ConversationClient({ conversation, initialMessages, curr
   }
 
   return (
-    <div>
+    <div className="flex flex-col h-[calc(100vh-4rem)]">
       <DashboardNav />
-      <div className="container mx-auto px-4 py-6 max-w-2xl">
-        <button onClick={() => router.push('/inbox')}
-          className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground mb-4">
-          <ArrowLeft className="w-4 h-4" /> Back to inbox
-        </button>
 
-        <div className="glass rounded-2xl shadow-sm overflow-hidden flex flex-col" style={{ height: 'calc(100vh - 220px)', minHeight: 480 }}>
-          {/* Header */}
-          <div className="px-5 py-4 border-b border-border/60 flex items-start justify-between gap-3 shrink-0">
-            <div className="flex items-center gap-3 min-w-0">
-              <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center text-primary font-semibold">
-                {(otherName[0] || '?').toUpperCase()}
-              </div>
-              <div className="min-w-0">
-                <p className="font-semibold truncate">{otherName}</p>
-                <p className="text-xs text-muted-foreground">{kindLabel[conversation.kind]} · {isSeller ? 'buyer' : 'seller'}</p>
-              </div>
-            </div>
-            {conversation.ad && (
-              <Link href={`/ad/${conversation.ad.id}`} className="text-xs text-primary hover:underline inline-flex items-center gap-1 shrink-0 mt-1">
-                <ExternalLink className="w-3 h-3" /> View ad
-              </Link>
-            )}
-          </div>
-
-          {/* Messages */}
-          <div ref={scrollRef} className="flex-1 overflow-y-auto p-4 space-y-3 bg-muted/20">
-            {messages.length === 0 ? (
-              <p className="text-sm text-muted-foreground text-center py-8">No messages yet — say hello!</p>
-            ) : messages.map(m => {
-              const mine = m.sender_id === currentUserId
-              return (
-                <div key={m.id} className={`flex ${mine ? 'justify-end' : 'justify-start'}`}>
-                  <div className={`max-w-[78%] rounded-2xl px-4 py-2.5 shadow-sm ${
-                    mine ? 'bg-primary text-primary-foreground rounded-br-md' : 'bg-background border border-border rounded-bl-md'
-                  }`}>
-                    <p className="text-sm whitespace-pre-wrap break-words">{m.body}</p>
-                    <p className={`text-[10px] mt-1 ${mine ? 'text-primary-foreground/70' : 'text-muted-foreground'}`}>
-                      {new Date(m.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                    </p>
-                  </div>
-                </div>
-              )
-            })}
-          </div>
-
-          {/* Composer */}
-          <form onSubmit={send} className="p-3 border-t border-border/60 flex items-end gap-2 bg-background shrink-0">
-            <textarea
-              value={body}
-              onChange={e => setBody(e.target.value)}
-              onKeyDown={e => {
-                if (e.key === 'Enter' && !e.shiftKey) {
-                  e.preventDefault()
-                  send(e as any)
-                }
-              }}
-              placeholder="Write a reply…"
-              rows={1}
-              className="flex-1 resize-none text-sm border border-border/70 rounded-xl px-3 py-2 bg-background focus:outline-none focus:ring-2 focus:ring-ring max-h-32"
-            />
-            <Button type="submit" disabled={sending || !body.trim()} className="gap-1.5 shrink-0">
-              {sending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
-              Send
-            </Button>
-          </form>
+      {/* Header */}
+      <div className="border-b border-border/60 bg-background/80 backdrop-blur-sm px-4 py-3 flex items-center gap-3">
+        <Button variant="ghost" size="icon" onClick={() => router.push('/inbox')} className="shrink-0">
+          <ArrowLeft className="w-4 h-4" />
+        </Button>
+        <div className="w-9 h-9 rounded-full bg-primary/10 flex items-center justify-center text-primary font-semibold shrink-0">
+          {(otherName[0] || '?').toUpperCase()}
+        </div>
+        <div className="min-w-0 flex-1">
+          <p className="font-semibold truncate">{otherName}</p>
+          {convo.ad?.title && (
+            <Link href={`/ad/${convo.ad.id}`} className="text-xs text-muted-foreground hover:text-primary flex items-center gap-1">
+              {convo.ad.title} <ExternalLink className="w-3 h-3" />
+            </Link>
+          )}
         </div>
       </div>
+
+      {/* Messages */}
+      <div className="flex-1 overflow-y-auto px-4 py-4 space-y-3">
+        {messages.length === 0 ? (
+          <p className="text-center text-sm text-muted-foreground py-8">No messages yet. Say hello!</p>
+        ) : messages.map(msg => {
+          const isOwn = msg.sender_id === currentUserId
+          return (
+            <div key={msg.id} className={`flex ${isOwn ? 'justify-end' : 'justify-start'}`}>
+              <div className={`max-w-[75%] rounded-2xl px-4 py-2.5 text-sm ${isOwn ? 'bg-primary text-primary-foreground rounded-br-sm' : 'bg-muted rounded-bl-sm'}`}>
+                <p className="whitespace-pre-wrap break-words">{msg.body}</p>
+                <p className={`text-[10px] mt-1 ${isOwn ? 'text-primary-foreground/60' : 'text-muted-foreground'}`}>{timeAgo(msg.created_at)}</p>
+              </div>
+            </div>
+          )
+        })}
+        <div ref={bottomRef} />
+      </div>
+
+      {/* Input */}
+      <form onSubmit={sendMessage} className="border-t border-border/60 bg-background/80 backdrop-blur-sm px-4 py-3 flex gap-2">
+        <input
+          className="flex-1 bg-muted rounded-full px-4 py-2 text-sm outline-none focus:ring-2 focus:ring-primary/40 resize-none"
+          placeholder="Type a message…"
+          value={body}
+          onChange={e => setBody(e.target.value)}
+          onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(e as any) } }}
+        />
+        <Button type="submit" size="icon" className="rounded-full shrink-0" disabled={!body.trim() || sending}>
+          {sending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
+        </Button>
+      </form>
     </div>
   )
 }

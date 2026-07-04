@@ -1,39 +1,36 @@
-import { createServerClient } from '@supabase/ssr'
+import { jwtVerify } from 'jose'
 import { NextResponse, type NextRequest } from 'next/server'
 
+const SESSION_COOKIE = '__fimihub_session'
+
+function getSecret() {
+  return new TextEncoder().encode(process.env.SESSION_SECRET || 'fallback-dev-secret-change-in-production')
+}
+
 export async function middleware(request: NextRequest) {
-  let supabaseResponse = NextResponse.next({ request })
+  const token = request.cookies.get(SESSION_COOKIE)?.value
+  let authenticated = false
 
-  const supabase = createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    {
-      cookies: {
-        getAll() { return request.cookies.getAll() },
-        setAll(cookiesToSet) {
-          cookiesToSet.forEach(({ name, value }) => request.cookies.set(name, value))
-          supabaseResponse = NextResponse.next({ request })
-          cookiesToSet.forEach(({ name, value, options }) =>
-            supabaseResponse.cookies.set(name, value, options)
-          )
-        },
-      },
+  if (token) {
+    try {
+      await jwtVerify(token, getSecret())
+      authenticated = true
+    } catch {
+      // invalid or expired token
     }
-  )
-
-  const { data: { user } } = await supabase.auth.getUser()
+  }
 
   const protectedRoutes = ['/dashboard', '/post', '/credits']
   const isProtected = protectedRoutes.some(r => request.nextUrl.pathname.startsWith(r))
 
-  if (isProtected && !user) {
+  if (isProtected && !authenticated) {
     const url = request.nextUrl.clone()
     url.pathname = '/login'
     url.searchParams.set('redirect', request.nextUrl.pathname)
     return NextResponse.redirect(url)
   }
 
-  return supabaseResponse
+  return NextResponse.next()
 }
 
 export const config = {

@@ -1,7 +1,7 @@
 import { redirect } from 'next/navigation'
 import Link from 'next/link'
-import { createClient } from '@/lib/supabase/server'
-import { createAdminClient } from '@/lib/supabase/admin'
+import { getUser } from '@/lib/auth'
+import pool from '@/lib/db'
 import DashboardNav from '@/components/DashboardNav'
 import { Inbox as InboxIcon, MessageSquare, Package, Send } from 'lucide-react'
 import { timeAgo } from '@/lib/utils'
@@ -9,24 +9,23 @@ import { timeAgo } from '@/lib/utils'
 export const dynamic = 'force-dynamic'
 
 export default async function InboxPage() {
-  const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
+  const user = await getUser()
   if (!user) redirect('/login?redirect=/inbox')
 
-  const admin = createAdminClient()
-  const { data: conversations } = await admin
-    .from('conversations')
-    .select(`
-      id, ad_id, buyer_id, seller_id, kind, subject, last_message_at,
-      ad:ads(id, title, media),
-      buyer:profiles!conversations_buyer_id_fkey(id, full_name, email, avatar_url),
-      seller:profiles!conversations_seller_id_fkey(id, full_name, email, avatar_url)
-    `)
-    .or(`buyer_id.eq.${user.id},seller_id.eq.${user.id}`)
-    .order('last_message_at', { ascending: false })
-    .limit(100)
-
-  const list = conversations || []
+  const { rows: conversations } = await pool.query(`
+    SELECT
+      c.id, c.ad_id, c.buyer_id, c.seller_id, c.kind, c.subject, c.last_message_at,
+      json_build_object('id', a.id, 'title', a.title, 'media', a.media) AS ad,
+      json_build_object('id', b.id, 'full_name', b.full_name, 'email', b.email, 'avatar_url', b.avatar_url) AS buyer,
+      json_build_object('id', s.id, 'full_name', s.full_name, 'email', s.email, 'avatar_url', s.avatar_url) AS seller
+    FROM conversations c
+    LEFT JOIN ads a ON a.id = c.ad_id
+    LEFT JOIN profiles b ON b.id = c.buyer_id
+    LEFT JOIN profiles s ON s.id = c.seller_id
+    WHERE c.buyer_id = $1 OR c.seller_id = $1
+    ORDER BY c.last_message_at DESC
+    LIMIT 100
+  `, [user.id])
 
   const kindBadge: Record<string, { label: string; cls: string; Icon: any }> = {
     inquiry: { label: 'Inquiry', cls: 'bg-primary/10 text-primary', Icon: MessageSquare },
@@ -43,7 +42,7 @@ export default async function InboxPage() {
           <p className="text-sm text-muted-foreground mt-1">Conversations with buyers and sellers — orders, requests, and inquiries.</p>
         </div>
 
-        {list.length === 0 ? (
+        {conversations.length === 0 ? (
           <div className="glass rounded-2xl text-center py-16 px-4 shadow-sm">
             <div className="w-14 h-14 rounded-full bg-muted flex items-center justify-center mx-auto mb-3">
               <InboxIcon className="w-6 h-6 text-muted-foreground/40" />
@@ -53,7 +52,7 @@ export default async function InboxPage() {
           </div>
         ) : (
           <div className="space-y-2">
-            {list.map((c: any) => {
+            {conversations.map((c: any) => {
               const isSeller = c.seller_id === user.id
               const other = isSeller ? c.buyer : c.seller
               const otherName = other?.full_name || other?.email || 'User'
@@ -72,12 +71,12 @@ export default async function InboxPage() {
                           <span className="text-xs text-muted-foreground shrink-0">{timeAgo(c.last_message_at)}</span>
                         </div>
                         <div className="flex items-center gap-2 mb-1">
-                          <span className={`text-[10px] px-1.5 py-0.5 rounded-full uppercase font-semibold tracking-wide inline-flex items-center gap-1 ${meta.cls}`}>
+                          <span className={`inline-flex items-center gap-1 text-[11px] font-medium px-1.5 py-0.5 rounded-full ${meta.cls}`}>
                             <Icon className="w-3 h-3" /> {meta.label}
                           </span>
-                          <span className="text-xs text-muted-foreground truncate">{isSeller ? 'incoming' : 'outgoing'}</span>
+                          {c.ad?.title && <span className="text-xs text-muted-foreground truncate">{c.ad.title}</span>}
                         </div>
-                        <p className="text-sm text-muted-foreground truncate">{c.subject || c.ad?.title || 'Conversation'}</p>
+                        {c.subject && <p className="text-xs text-muted-foreground truncate">{c.subject}</p>}
                       </div>
                     </div>
                   </div>

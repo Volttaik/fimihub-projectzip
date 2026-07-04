@@ -1,32 +1,27 @@
 import { redirect } from 'next/navigation'
-import { createClient } from '@/lib/supabase/server'
+import { getUser } from '@/lib/auth'
+import pool from '@/lib/db'
 import PostAdClient from '@/components/PostAdClient'
 import { FREE_POSTS_LIMIT, POST_COST_CREDITS } from '@/lib/constants'
 
 export default async function PostPage() {
-  const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
+  const user = await getUser()
   if (!user) redirect('/login?redirect=/post')
 
-  const { data: profile } = await supabase
-    .from('profiles')
-    .select('credits, paystack_subaccount_code')
-    .eq('id', user.id)
-    .single()
+  const [profileRes, countRes] = await Promise.all([
+    pool.query(`SELECT credits, paystack_subaccount_code FROM profiles WHERE id = $1 LIMIT 1`, [user.id]),
+    pool.query(`SELECT COUNT(*) AS cnt FROM ads WHERE user_id = $1`, [user.id]),
+  ])
 
-  const { count: postCount } = await supabase
-    .from('ads')
-    .select('*', { count: 'exact', head: true })
-    .eq('user_id', user.id)
-
-  const usedPosts = postCount || 0
+  const profile = profileRes.rows[0]
+  const usedPosts = parseInt(countRes.rows[0]?.cnt ?? '0', 10)
   const freePostsRemaining = Math.max(0, FREE_POSTS_LIMIT - usedPosts)
 
   return (
     <PostAdClient
       userId={user.id}
-      userEmail={user.email || ''}
-      credits={profile?.credits || 0}
+      userEmail={user.email}
+      credits={profile?.credits ?? 0}
       hasPayoutAccount={!!profile?.paystack_subaccount_code}
       freePostsRemaining={freePostsRemaining}
       postCostCredits={POST_COST_CREDITS}

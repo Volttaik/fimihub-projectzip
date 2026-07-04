@@ -1,117 +1,88 @@
 "use client"
 import { useState } from 'react'
-import Link from 'next/link'
-import { Inbox, Mail, Phone, Calendar } from 'lucide-react'
-import { Button } from '@/components/ui/button'
 import DashboardNav from '@/components/DashboardNav'
+import { Button } from '@/components/ui/button'
+import { ClipboardList, CheckCircle2, XCircle, Clock } from 'lucide-react'
 import { timeAgo } from '@/lib/utils'
-import { createClient } from '@/lib/supabase/client'
 import { toast } from 'sonner'
 import type { CustomRequest } from '@/lib/supabase/types'
 
-type RequestRow = CustomRequest & { ad?: { id: string; title: string } | null }
+interface Props {
+  requests: (CustomRequest & { ad?: { id: string; title: string } | null })[]
+}
 
-export default function RequestsClient({ requests }: { requests: RequestRow[] }) {
-  const [items, setItems] = useState(requests)
-  const supabase = createClient()
+const statusConfig: Record<string, { label: string; cls: string; icon: any }> = {
+  open:      { label: 'Open',      cls: 'bg-blue-100 text-blue-700',    icon: Clock },
+  responded: { label: 'Responded', cls: 'bg-emerald-100 text-emerald-700', icon: CheckCircle2 },
+  closed:    { label: 'Closed',    cls: 'bg-muted text-muted-foreground', icon: XCircle },
+}
 
-  const setStatus = async (id: string, status: 'open' | 'responded' | 'closed') => {
-    const prev = items
-    setItems(items.map(r => r.id === id ? { ...r, status } : r))
-    const { error } = await supabase.from('custom_requests').update({ status }).eq('id', id)
-    if (error) { setItems(prev); toast.error('Could not update'); return }
-    toast.success(`Marked as ${status}`)
+export default function RequestsClient({ requests: initialRequests }: Props) {
+  const [requests, setRequests] = useState(initialRequests)
+
+  const updateStatus = async (id: string, status: string) => {
+    try {
+      const res = await fetch(`/api/custom-requests/${id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status }),
+      })
+      if (!res.ok) throw new Error((await res.json()).error)
+      setRequests(prev => prev.map(r => r.id === id ? { ...r, status: status as any } : r))
+      toast.success('Status updated')
+    } catch (err: any) {
+      toast.error(err.message || 'Could not update status')
+    }
   }
-
-  const open = items.filter(r => r.status === 'open')
-  const others = items.filter(r => r.status !== 'open')
 
   return (
     <div>
       <DashboardNav />
-      <div className="container mx-auto px-4 py-8 max-w-4xl">
+      <div className="container mx-auto px-4 py-8 max-w-3xl">
         <div className="mb-6">
-          <h1 className="text-2xl font-bold flex items-center gap-2"><Inbox className="w-6 h-6" /> Custom requests</h1>
-          <p className="text-sm text-muted-foreground mt-1">Buyers asking for variants, bulk orders, or anything custom on your ad spaces.</p>
+          <h1 className="text-2xl font-bold flex items-center gap-2"><ClipboardList className="w-6 h-6" /> Custom Requests</h1>
+          <p className="text-sm text-muted-foreground mt-1">Buyers who sent custom requests for your ads.</p>
         </div>
 
-        {items.length === 0 ? (
-          <div className="glass rounded-2xl text-center py-16 px-4 shadow-sm">
-            <div className="w-14 h-14 rounded-full bg-muted flex items-center justify-center mx-auto mb-3">
-              <Inbox className="w-6 h-6 text-muted-foreground/40" />
-            </div>
+        {requests.length === 0 ? (
+          <div className="glass rounded-2xl text-center py-16 px-4">
+            <ClipboardList className="w-10 h-10 text-muted-foreground/30 mx-auto mb-3" />
             <p className="font-semibold">No requests yet</p>
-            <p className="text-sm text-muted-foreground mt-1">When buyers send custom requests on your ad spaces, they appear here.</p>
+            <p className="text-sm text-muted-foreground mt-1">Custom requests from buyers will appear here.</p>
           </div>
         ) : (
-          <div className="space-y-6">
-            {open.length > 0 && (
-              <div>
-                <h2 className="text-sm font-semibold text-muted-foreground mb-3 uppercase tracking-wide">Open ({open.length})</h2>
-                <div className="space-y-3">{open.map(r => <RequestCard key={r.id} req={r} onStatus={setStatus} />)}</div>
-              </div>
-            )}
-            {others.length > 0 && (
-              <div>
-                <h2 className="text-sm font-semibold text-muted-foreground mb-3 uppercase tracking-wide">Archive</h2>
-                <div className="space-y-3">{others.map(r => <RequestCard key={r.id} req={r} onStatus={setStatus} />)}</div>
-              </div>
-            )}
+          <div className="space-y-3">
+            {requests.map(r => {
+              const sc = statusConfig[r.status] || statusConfig.open
+              const Icon = sc.icon
+              return (
+                <div key={r.id} className="glass rounded-2xl p-5 border border-border/40">
+                  <div className="flex items-start justify-between gap-3 mb-3">
+                    <div>
+                      <p className="font-semibold">{r.buyer_name}</p>
+                      <p className="text-xs text-muted-foreground">{r.buyer_email}{r.buyer_phone ? ` · ${r.buyer_phone}` : ''}</p>
+                    </div>
+                    <span className={`inline-flex items-center gap-1 text-xs font-medium px-2 py-0.5 rounded-full ${sc.cls}`}>
+                      <Icon className="w-3 h-3" /> {sc.label}
+                    </span>
+                  </div>
+                  {r.ad && <p className="text-xs text-muted-foreground mb-2">Re: <span className="font-medium">{r.ad.title}</span></p>}
+                  <p className="text-sm mb-3 whitespace-pre-wrap">{r.message}</p>
+                  <div className="flex flex-wrap gap-2 text-xs text-muted-foreground mb-3">
+                    {r.budget && <span>Budget: ₦{Number(r.budget).toLocaleString()}</span>}
+                    {r.quantity && <span>Qty: {r.quantity}</span>}
+                    <span>{timeAgo(r.created_at)}</span>
+                  </div>
+                  {r.status === 'open' && (
+                    <div className="flex gap-2">
+                      <Button size="sm" onClick={() => updateStatus(r.id, 'responded')}>Mark Responded</Button>
+                      <Button size="sm" variant="outline" onClick={() => updateStatus(r.id, 'closed')}>Close</Button>
+                    </div>
+                  )}
+                </div>
+              )
+            })}
           </div>
-        )}
-      </div>
-    </div>
-  )
-}
-
-function RequestCard({ req, onStatus }: { req: RequestRow; onStatus: (id: string, s: 'open' | 'responded' | 'closed') => void }) {
-  const naira = (n: number) => `₦${Number(n).toLocaleString()}`
-  const statusColor =
-    req.status === 'open' ? 'bg-amber-100 text-amber-700' :
-    req.status === 'responded' ? 'bg-blue-100 text-blue-700' :
-    'bg-muted text-muted-foreground'
-
-  return (
-    <div className="glass rounded-2xl p-5 shadow-sm">
-      <div className="flex items-start justify-between gap-3 mb-3">
-        <div className="min-w-0">
-          <p className="font-semibold truncate">{req.buyer_name}</p>
-          {req.ad && (
-            <Link href={`/ad/${req.ad.id}`} className="text-xs text-primary hover:underline">
-              {req.ad.title}
-            </Link>
-          )}
-        </div>
-        <span className={`text-[10px] px-2 py-0.5 rounded-full uppercase font-semibold tracking-wide ${statusColor}`}>
-          {req.status}
-        </span>
-      </div>
-
-      <p className="text-sm text-foreground whitespace-pre-wrap mb-4 bg-muted/40 rounded-xl p-3">{req.message}</p>
-
-      <div className="flex flex-wrap gap-x-4 gap-y-1.5 text-xs text-muted-foreground mb-4">
-        {req.quantity && <span>Qty: <strong className="text-foreground">{req.quantity}</strong></span>}
-        {req.budget && <span>Budget: <strong className="text-foreground">{naira(req.budget)}</strong></span>}
-        <span className="flex items-center gap-1"><Calendar className="w-3 h-3" /> {timeAgo(req.created_at)}</span>
-      </div>
-
-      <div className="flex flex-wrap gap-2 items-center">
-        <a href={`mailto:${req.buyer_email}?subject=Re: your request`} className="inline-flex">
-          <Button size="sm" className="gap-1.5"><Mail className="w-3.5 h-3.5" /> Reply by email</Button>
-        </a>
-        {req.buyer_phone && (
-          <a href={`tel:${req.buyer_phone}`} className="inline-flex">
-            <Button size="sm" variant="outline" className="gap-1.5"><Phone className="w-3.5 h-3.5" /> {req.buyer_phone}</Button>
-          </a>
-        )}
-        {req.status !== 'responded' && (
-          <Button size="sm" variant="ghost" onClick={() => onStatus(req.id, 'responded')}>Mark as responded</Button>
-        )}
-        {req.status !== 'closed' && (
-          <Button size="sm" variant="ghost" onClick={() => onStatus(req.id, 'closed')}>Close</Button>
-        )}
-        {req.status === 'closed' && (
-          <Button size="sm" variant="ghost" onClick={() => onStatus(req.id, 'open')}>Reopen</Button>
         )}
       </div>
     </div>

@@ -1,18 +1,17 @@
 import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
-import { createClient } from '@/lib/supabase/server'
+import { getUserFromRequest } from '@/lib/auth'
 
 export async function POST(request: NextRequest) {
   try {
     const { amount, credits, userId, email } = await request.json()
 
     const origin = request.headers.get('origin') ||
-      request.headers.get('x-forwarded-proto') + '://' + request.headers.get('host') ||
+      (request.headers.get('x-forwarded-proto') + '://' + request.headers.get('host')) ||
       process.env.NEXT_PUBLIC_SITE_URL ||
       'http://localhost:5000'
 
-    const supabase = await createClient()
-    const { data: { user } } = await supabase.auth.getUser()
+    const user = await getUserFromRequest(request)
     if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
     const reference = `fimi_${Date.now()}_${Math.random().toString(36).slice(2)}`
@@ -43,7 +42,6 @@ export async function POST(request: NextRequest) {
     if (!data.status) {
       return NextResponse.json({ error: data.message || 'Payment initialization failed' }, { status: 400 })
     }
-
     return NextResponse.json({ authorizationUrl: data.data.authorization_url, reference })
   } catch (err) {
     console.error('Paystack initialize error:', err)

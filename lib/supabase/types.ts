@@ -1,3 +1,5 @@
+export type AppUser = { id: string; email: string }
+
 export type Category = 'products' | 'services' | 'rentals' | 'business'
 export type PriceType = 'fixed' | 'negotiable' | 'free' | 'per_month' | 'per_hour'
 export type AdStatus = 'pending' | 'active' | 'rejected' | 'sold' | 'expired'

@@ -1,21 +1,23 @@
 import { redirect } from 'next/navigation'
-import { createClient } from '@/lib/supabase/server'
+import { getUser } from '@/lib/auth'
+import pool from '@/lib/db'
 import CreditsClient from '@/components/CreditsClient'
 
 export default async function CreditsPage() {
-  const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
+  const user = await getUser()
   if (!user) redirect('/login?redirect=/credits')
 
-  const { data: profile } = await supabase.from('profiles').select('credits').eq('id', user.id).single()
-  const { data: transactions } = await supabase.from('credit_transactions').select('*').eq('user_id', user.id).order('created_at', { ascending: false }).limit(20)
+  const [profileRes, txRes] = await Promise.all([
+    pool.query(`SELECT credits FROM profiles WHERE id = $1 LIMIT 1`, [user.id]),
+    pool.query(`SELECT * FROM credit_transactions WHERE user_id = $1 ORDER BY created_at DESC LIMIT 20`, [user.id]),
+  ])
 
   return (
     <CreditsClient
       userId={user.id}
-      userEmail={user.email || ''}
-      credits={profile?.credits || 0}
-      transactions={transactions || []}
+      userEmail={user.email}
+      credits={profileRes.rows[0]?.credits ?? 0}
+      transactions={txRes.rows}
     />
   )
 }

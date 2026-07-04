@@ -1,12 +1,9 @@
-import { createBrowserClient } from '@supabase/ssr'
-
-const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://placeholder.supabase.co'
-const SUPABASE_ANON_KEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'placeholder-key'
-
+/**
+ * Browser-side stub — all mutations go through API routes now.
+ * This file exists only to satisfy any stray imports; components
+ * that used to call createClient() have been rewritten to use fetch().
+ */
 export function createClient() {
-  return createBrowserClient(SUPABASE_URL, SUPABASE_ANON_KEY)
+  throw new Error('createClient() is not available on the client. Use fetch() to call API routes instead.')
 }
-
-export function isSupabaseConfigured() {
-  return !!(process.env.NEXT_PUBLIC_SUPABASE_URL && process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY)
-}
+export function isSupabaseConfigured() { return true }

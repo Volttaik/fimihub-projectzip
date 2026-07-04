@@ -1,7 +1,7 @@
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
 import { CheckCircle2, Clock, XCircle } from 'lucide-react'
-import { createAdminClient } from '@/lib/supabase/admin'
+import pool from '@/lib/db'
 import { Button } from '@/components/ui/button'
 
 export const dynamic = 'force-dynamic'
@@ -10,14 +10,18 @@ const naira = (kobo: number) => `₦${(kobo / 100).toLocaleString('en-NG')}`
 
 export default async function OrderPage({ params }: { params: Promise<{ reference: string }> }) {
   const { reference } = await params
-  const admin = createAdminClient()
-  const { data: order } = await admin
-    .from('orders')
-    .select('*, ad:ads(title, media)')
-    .eq('paystack_reference', reference)
-    .single()
 
-  if (!order) notFound()
+  const { rows } = await pool.query(`
+    SELECT o.*,
+      json_build_object('title', a.title, 'media', a.media) AS ad
+    FROM orders o
+    LEFT JOIN ads a ON a.id = o.ad_id
+    WHERE o.paystack_reference = $1
+    LIMIT 1
+  `, [reference])
+
+  if (!rows.length) notFound()
+  const order = rows[0]
 
   const status = order.status as string
   const statusUI = status === 'paid'

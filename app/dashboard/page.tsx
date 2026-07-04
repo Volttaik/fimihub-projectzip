@@ -1,33 +1,28 @@
 import { redirect } from 'next/navigation'
-import { createClient } from '@/lib/supabase/server'
+import { getUser } from '@/lib/auth'
+import pool from '@/lib/db'
 import DashboardClient from '@/components/DashboardClient'
+import type { AppUser } from '@/lib/supabase/types'
 
 export default async function DashboardPage() {
-  const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
+  const user = await getUser()
   if (!user) redirect('/login?redirect=/dashboard')
 
-  const [profileRes, adsRes, transactionsRes, boostUsedRes] = await Promise.all([
-    supabase.from('profiles').select('*').eq('id', user.id).single(),
-    supabase.from('ads').select('*').eq('user_id', user.id).order('created_at', { ascending: false }),
-    supabase.from('credit_transactions').select('*').eq('user_id', user.id).order('created_at', { ascending: false }).limit(10),
-    // Detect whether the user has ever boosted before (free or paid) by looking
-    // for any boost-tagged credit transaction. No DB schema change needed.
-    supabase
-      .from('credit_transactions')
-      .select('id', { count: 'exact', head: true })
-      .eq('user_id', user.id)
-      .ilike('description', '%boost%'),
+  const [profileRes, adsRes, txRes, boostCountRes] = await Promise.all([
+    pool.query(`SELECT * FROM profiles WHERE id = $1 LIMIT 1`, [user.id]),
+    pool.query(`SELECT * FROM ads WHERE user_id = $1 ORDER BY created_at DESC`, [user.id]),
+    pool.query(`SELECT * FROM credit_transactions WHERE user_id = $1 ORDER BY created_at DESC LIMIT 10`, [user.id]),
+    pool.query(`SELECT COUNT(*) AS cnt FROM credit_transactions WHERE user_id = $1 AND description ILIKE '%boost%'`, [user.id]),
   ])
 
-  const freeBoostAvailable = (boostUsedRes.count ?? 0) === 0
+  const freeBoostAvailable = parseInt(boostCountRes.rows[0]?.cnt ?? '0', 10) === 0
 
   return (
     <DashboardClient
-      user={user}
-      profile={profileRes.data}
-      ads={adsRes.data || []}
-      transactions={transactionsRes.data || []}
+      user={user as AppUser}
+      profile={profileRes.rows[0] ?? null}
+      ads={adsRes.rows}
+      transactions={txRes.rows}
       freeBoostAvailable={freeBoostAvailable}
     />
   )

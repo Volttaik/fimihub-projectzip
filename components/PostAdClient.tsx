@@ -5,11 +5,9 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
 import { Label } from '@/components/ui/label'
-import { CheckCircle2, ImagePlus, X, Video, Images, Loader2, ShoppingBag, Wrench, Home, Briefcase } from 'lucide-react'
+import { CheckCircle2, ImagePlus, X, Video, Loader2, ShoppingBag, Wrench, Home, Briefcase } from 'lucide-react'
 import { useDropzone } from 'react-dropzone'
-import { createClient } from '@/lib/supabase/client'
 import { toast } from 'sonner'
-import { v4 as uuidv4 } from 'uuid'
 import type { MediaItem } from '@/lib/supabase/types'
 
 const CATEGORIES = [
@@ -18,7 +16,6 @@ const CATEGORIES = [
   { id: 'rentals', label: 'Rentals', description: 'Homes, rooms & spaces', icon: Home },
   { id: 'business', label: 'Business & Brands', description: 'Promote your business', icon: Briefcase },
 ]
-
 const PRICE_TYPES = [
   { value: 'fixed', label: 'Fixed Price' },
   { value: 'negotiable', label: 'Negotiable' },
@@ -61,11 +58,10 @@ export default function PostAdClient({ userId, userEmail, credits, hasPayoutAcco
     priceType: 'fixed', location: '', contactEmail: userEmail,
     contactPhone: '', tags: '', quantity: '', acceptPayments: false,
   })
-  const set = (k: string, v: string) => setForm(f => ({ ...f, [k]: v }))
+  const set = (k: string, v: any) => setForm(f => ({ ...f, [k]: v }))
 
   const step1Valid = form.title && form.category
   const step2Valid = form.description && form.location && form.contactEmail
-  const supabase = createClient()
 
   const onDrop = useCallback((accepted: File[]) => {
     const newUploads: UploadFile[] = accepted.slice(0, 10 - uploads.length).map(file => ({
@@ -97,296 +93,202 @@ export default function PostAdClient({ userId, userEmail, credits, hasPayoutAcco
     const updated = [...uploads]
 
     for (let i = 0; i < updated.length; i++) {
-      const u = updated[i]
-      updated[i] = { ...u, uploading: true }
+      updated[i] = { ...updated[i], uploading: true }
       setUploads([...updated])
 
-      const ext = u.file.name.split('.').pop()
-      const path = `${userId}/${uuidv4()}.${ext}`
-
-      const { error } = await supabase.storage
-        .from('ad-media')
-        .upload(path, u.file, { contentType: u.file.type, upsert: false })
-
-      if (error) {
-        updated[i] = { ...updated[i], uploading: false, error: error.message }
-        setUploads([...updated])
-        toast.error(`Failed to upload ${u.file.name}`)
-        continue
+      try {
+        const form = new FormData()
+        form.append('file', updated[i].file)
+        const res = await fetch('/api/upload', { method: 'POST', body: form })
+        if (!res.ok) throw new Error((await res.json()).error || 'Upload failed')
+        const { url, type } = await res.json()
+        updated[i] = { ...updated[i], uploading: false, url }
+        results.push({ url, type })
+      } catch (e: any) {
+        updated[i] = { ...updated[i], uploading: false, error: e.message }
+        toast.error(`Failed to upload ${updated[i].file.name}`)
       }
-
-      const { data: { publicUrl } } = supabase.storage.from('ad-media').getPublicUrl(path)
-      updated[i] = { ...updated[i], uploading: false, url: publicUrl }
       setUploads([...updated])
-      results.push({ url: publicUrl, type: u.type })
     }
-
     return results
   }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-
-    if (!canPost) {
-      toast.error(`You've used your ${freePostsRemaining === 0 ? 'free posts' : ''}. You need ${postCostCredits} credits to post another ad.`)
-      router.push('/credits')
-      return
-    }
-
+    if (!canPost) { toast.error('You need credits to post'); return }
     setLoading(true)
 
-    let media: MediaItem[] = []
-    if (uploads.length > 0) {
-      media = await uploadMedia()
-    }
+    try {
+      const media = await uploadMedia()
 
-    const tags = form.tags.split(',').map(t => t.trim().toLowerCase()).filter(Boolean)
+      const res = await fetch('/api/ads', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          title: form.title,
+          description: form.description,
+          category: form.category,
+          price: form.priceType !== 'free' && form.price ? Number(form.price) : null,
+          price_type: form.priceType,
+          location: form.location,
+          contact_email: form.contactEmail,
+          contact_phone: form.contactPhone || null,
+          tags: form.tags ? form.tags.split(',').map(t => t.trim()).filter(Boolean) : [],
+          media,
+          quantity: form.quantity ? parseInt(form.quantity, 10) : null,
+          accept_payments: form.acceptPayments,
+        }),
+      })
 
-    const { data: insertedAd, error } = await supabase.from('ads').insert({
-      user_id: userId,
-      title: form.title,
-      description: form.description,
-      category: form.category as any,
-      price: form.priceType === 'free' ? null : form.price ? Number(form.price) : null,
-      price_type: form.priceType as any,
-      location: form.location,
-      contact_email: form.contactEmail,
-      contact_phone: form.contactPhone || null,
-      status: 'active',
-      media,
-      tags,
-      boost_expires_at: null,
-      quantity: form.quantity ? Number(form.quantity) : null,
-      accept_payments: form.acceptPayments && hasPayoutAccount,
-    } as any).select('id').single()
-
-    if (error || !insertedAd) {
-      setLoading(false)
-      toast.error('Failed to post ad space. Please try again.')
-      return
-    }
-
-    if (!isFree) {
-      const newCredits = credits - postCostCredits
-      const { error: creditsError } = await supabase
-        .from('profiles')
-        .update({ credits: newCredits })
-        .eq('id', userId)
-
-      if (!creditsError) {
-        await supabase.from('credit_transactions').insert({
-          user_id: userId,
-          amount: -postCostCredits,
-          type: 'spend',
-          description: 'Posted an ad space',
-          reference: insertedAd.id,
-        } as any)
+      if (!res.ok) {
+        const d = await res.json()
+        throw new Error(d.error || 'Failed to create ad')
       }
-    }
 
-    setLoading(false)
-    setSubmitted(true)
-    toast.success(isFree ? 'Your ad space is now live!' : `Ad posted! ${postCostCredits} credits used.`)
+      setSubmitted(true)
+      toast.success('Ad posted successfully!')
+      setTimeout(() => router.push('/dashboard'), 1500)
+    } catch (err: any) {
+      toast.error(err.message || 'Failed to post ad')
+    } finally {
+      setLoading(false)
+    }
   }
 
   if (submitted) {
     return (
-      <div className="container mx-auto px-4 py-20 max-w-md text-center">
-        <div className="glass rounded-3xl p-10 shadow-md animate-in-up">
-          <CheckCircle2 className="w-16 h-16 mx-auto mb-4 text-emerald-500" />
-          <h1 className="text-2xl font-bold mb-2">Ad Space is Live!</h1>
-          <p className="text-muted-foreground mb-6">Your ad space has been posted and is now visible to thousands of buyers.</p>
-          <div className="flex gap-3 justify-center">
-            <Button onClick={() => router.push('/')}>Browse Marketplace</Button>
-            <Button variant="outline" onClick={() => router.push('/dashboard')}>My Dashboard</Button>
+      <div className="container mx-auto px-4 py-12 max-w-md text-center">
+        <div className="glass rounded-3xl p-10 shadow-md">
+          <div className="w-16 h-16 rounded-full bg-emerald-100 flex items-center justify-center mx-auto mb-4">
+            <CheckCircle2 className="w-8 h-8 text-emerald-600" />
           </div>
+          <h1 className="text-2xl font-bold mb-2">Ad Posted!</h1>
+          <p className="text-muted-foreground">Your ad space is now live on FimiHub.</p>
         </div>
       </div>
     )
   }
 
   return (
-    <div className="container mx-auto px-4 py-10 max-w-2xl">
+    <div className="container mx-auto px-4 py-8 max-w-2xl">
       <div className="mb-6">
         <h1 className="text-2xl font-bold">Post an Ad Space</h1>
-        <p className="text-muted-foreground text-sm mt-1">Reach thousands of potential buyers, clients, and renters.</p>
+        <p className="text-sm text-muted-foreground mt-1">
+          {isFree ? `${freePostsRemaining} free post${freePostsRemaining !== 1 ? 's' : ''} remaining` : `${postCostCredits} credits per post · ${credits} credits available`}
+        </p>
       </div>
 
-      {/* Pricing banner */}
-      <div className={`rounded-xl p-4 mb-6 border text-sm ${isFree ? 'border-emerald-500/30 bg-emerald-500/5' : canPayWithCredits ? 'border-primary/30 bg-primary/5' : 'border-destructive/30 bg-destructive/5'}`}>
-        {isFree ? (
-          <p>
-            <span className="font-semibold text-emerald-600">Free post!</span>{' '}
-            You have <span className="font-semibold">{freePostsRemaining}</span> free post{freePostsRemaining === 1 ? '' : 's'} remaining. After that, each post costs {postCostCredits} credits.
-          </p>
-        ) : canPayWithCredits ? (
-          <p>
-            You&apos;ve used your 3 free posts. Posting this ad will use{' '}
-            <span className="font-semibold">{postCostCredits} credits</span> (you have {credits}).
-          </p>
-        ) : (
-          <p>
-            You&apos;ve used your 3 free posts and don&apos;t have enough credits ({credits}/{postCostCredits}).{' '}
-            <a href="/credits" className="font-semibold text-primary hover:underline">Buy credits →</a>
-          </p>
-        )}
-      </div>
-
-      {/* Stepper */}
-      <div className="flex items-center gap-2 mb-8 overflow-x-auto pb-2">
-        {[1, 2, 3].map(s => (
-          <div key={s} className="flex items-center gap-2 shrink-0">
-            <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-semibold transition-colors ${step >= s ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground'}`}>{s}</div>
-            <span className={`text-sm whitespace-nowrap ${step === s ? 'font-medium' : 'text-muted-foreground'}`}>
-              {s === 1 ? 'Details' : s === 2 ? 'Description' : 'Media & Review'}
-            </span>
-            {s < 3 && <div className={`h-px w-8 ${step > s ? 'bg-primary' : 'bg-border'}`} />}
+      {/* Step indicator */}
+      <div className="flex items-center gap-2 mb-6">
+        {[1,2,3].map(s => (
+          <div key={s} className={`flex items-center gap-2 ${s < 3 ? 'flex-1' : ''}`}>
+            <div className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold ${step >= s ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground'}`}>{s}</div>
+            {s < 3 && <div className={`flex-1 h-0.5 ${step > s ? 'bg-primary' : 'bg-muted'}`} />}
           </div>
         ))}
       </div>
 
       <form onSubmit={handleSubmit}>
+        {/* Step 1 — Category & Title */}
         {step === 1 && (
-          <div className="space-y-5 animate-in-up">
+          <div className="space-y-5">
             <div>
-              <Label htmlFor="title">Ad Space Title *</Label>
-              <Input id="title" placeholder="e.g. iPhone 14 Pro Max 256GB for sale" value={form.title}
-                onChange={e => set('title', e.target.value)} className="mt-1.5" />
-            </div>
-            <div>
-              <Label>Category *</Label>
-              <div className="grid grid-cols-2 gap-3 mt-2">
+              <Label className="mb-2 block">Category</Label>
+              <div className="grid grid-cols-2 gap-3">
                 {CATEGORIES.map(cat => (
-                  <button type="button" key={cat.id} onClick={() => set('category', cat.id)}
-                    className={`flex items-center gap-3 p-4 rounded-xl border transition-all text-left ${form.category === cat.id ? 'border-primary bg-primary/5 ring-1 ring-primary' : 'border-border hover:border-primary/50 glass'}`}>
-                    <cat.icon className="w-6 h-6 text-primary shrink-0" />
+                  <button key={cat.id} type="button" onClick={() => set('category', cat.id)}
+                    className={`flex items-center gap-3 p-3 rounded-xl border text-left transition-all ${form.category === cat.id ? 'border-primary bg-primary/5' : 'border-border hover:border-primary/40'}`}>
+                    <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
+                      <cat.icon className="w-4 h-4 text-primary" />
+                    </div>
                     <div>
-                      <p className="font-medium text-sm">{cat.label}</p>
+                      <p className="text-sm font-medium">{cat.label}</p>
                       <p className="text-xs text-muted-foreground">{cat.description}</p>
                     </div>
                   </button>
                 ))}
               </div>
             </div>
-            <div className="grid grid-cols-2 gap-4">
+            <div>
+              <Label htmlFor="title">Ad Title</Label>
+              <Input id="title" placeholder="e.g. MacBook Pro M3, Logo Design Service…" value={form.title} onChange={e => set('title', e.target.value)} className="mt-1.5" required />
+            </div>
+            <Button type="button" className="w-full" disabled={!step1Valid} onClick={() => setStep(2)}>Continue →</Button>
+          </div>
+        )}
+
+        {/* Step 2 — Details */}
+        {step === 2 && (
+          <div className="space-y-4">
+            <div>
+              <Label htmlFor="description">Description</Label>
+              <Textarea id="description" placeholder="Describe your ad space in detail…" value={form.description} onChange={e => set('description', e.target.value)} className="mt-1.5" rows={5} required />
+            </div>
+            <div className="grid grid-cols-2 gap-3">
               <div>
-                <Label htmlFor="priceType">Price Type</Label>
-                <select id="priceType" value={form.priceType} onChange={e => set('priceType', e.target.value)}
-                  className="mt-1.5 w-full text-sm border border-border/70 rounded-xl px-3 py-2 bg-background focus:outline-none focus:ring-2 focus:ring-ring">
+                <Label htmlFor="price-type">Price Type</Label>
+                <select id="price-type" className="mt-1.5 w-full rounded-md border border-input bg-background px-3 py-2 text-sm" value={form.priceType} onChange={e => set('priceType', e.target.value)}>
                   {PRICE_TYPES.map(p => <option key={p.value} value={p.value}>{p.label}</option>)}
                 </select>
               </div>
               {form.priceType !== 'free' && (
                 <div>
                   <Label htmlFor="price">Price (₦)</Label>
-                  <Input id="price" type="number" placeholder="e.g. 250000" value={form.price}
-                    onChange={e => set('price', e.target.value)} className="mt-1.5" />
+                  <Input id="price" type="number" placeholder="0" value={form.price} onChange={e => set('price', e.target.value)} className="mt-1.5" min="0" />
                 </div>
               )}
             </div>
-            <div className="flex justify-end">
-              <Button type="button" disabled={!step1Valid} onClick={() => setStep(2)}>Continue →</Button>
-            </div>
-          </div>
-        )}
-
-        {step === 2 && (
-          <div className="space-y-5 animate-in-up">
             <div>
-              <Label htmlFor="desc">Description *</Label>
-              <Textarea id="desc" placeholder="Describe your ad space in detail — condition, features, requirements, etc."
-                value={form.description} onChange={e => set('description', e.target.value)} className="mt-1.5 min-h-[140px]" />
-              <p className="text-xs text-muted-foreground mt-1">{form.description.length} characters</p>
+              <Label htmlFor="location">Location</Label>
+              <Input id="location" placeholder="e.g. Lagos, Abuja…" value={form.location} onChange={e => set('location', e.target.value)} className="mt-1.5" required />
             </div>
-            <div>
-              <Label htmlFor="location">Location *</Label>
-              <Input id="location" placeholder="e.g. Lagos, Nigeria or Remote" value={form.location}
-                onChange={e => set('location', e.target.value)} className="mt-1.5" />
-            </div>
-            <div>
-              <Label htmlFor="email">Contact Email *</Label>
-              <Input id="email" type="email" placeholder="your@email.com" value={form.contactEmail}
-                onChange={e => set('contactEmail', e.target.value)} className="mt-1.5" />
-            </div>
-            <div>
-              <Label htmlFor="phone">Contact Phone</Label>
-              <Input id="phone" type="tel" placeholder="+234 800 000 0000" value={form.contactPhone}
-                onChange={e => set('contactPhone', e.target.value)} className="mt-1.5" />
-            </div>
-            <div>
-              <Label htmlFor="tags">Tags (comma-separated)</Label>
-              <Input id="tags" placeholder="laptop, apple, macbook, tech" value={form.tags}
-                onChange={e => set('tags', e.target.value)} className="mt-1.5" />
-            </div>
-
-            {form.category === 'products' && (
+            <div className="grid grid-cols-2 gap-3">
               <div>
-                <Label htmlFor="qty">Available stock</Label>
-                <Input id="qty" type="number" min={1} placeholder="e.g. 5"
-                  value={form.quantity} onChange={e => set('quantity', e.target.value)} className="mt-1.5" />
-                <p className="text-xs text-muted-foreground mt-1">Leave empty if quantity isn&apos;t relevant.</p>
+                <Label htmlFor="contact-email">Contact Email</Label>
+                <Input id="contact-email" type="email" value={form.contactEmail} onChange={e => set('contactEmail', e.target.value)} className="mt-1.5" required />
               </div>
-            )}
-
-            {form.priceType !== 'free' && form.price && (
-              <div className="rounded-xl border border-border p-4 bg-muted/30">
-                <div className="flex items-start gap-3">
-                  <input
-                    type="checkbox"
-                    id="acceptPay"
-                    checked={form.acceptPayments && hasPayoutAccount}
-                    disabled={!hasPayoutAccount}
-                    onChange={e => setForm(f => ({ ...f, acceptPayments: e.target.checked }))}
-                    className="mt-1 w-4 h-4 accent-primary"
-                  />
-                  <div className="flex-1">
-                    <label htmlFor="acceptPay" className="font-medium text-sm block">
-                      Accept payments on this ad space
-                    </label>
-                    <p className="text-xs text-muted-foreground mt-1">
-                      Buyers see a Buy Now button and pay you directly via Paystack. A 5% platform fee applies.
-                    </p>
-                    {!hasPayoutAccount && (
-                      <a href="/bank-account" className="text-xs text-primary hover:underline inline-block mt-1.5">
-                        Connect a bank account to enable this →
-                      </a>
-                    )}
-                  </div>
-                </div>
+              <div>
+                <Label htmlFor="contact-phone">Phone (optional)</Label>
+                <Input id="contact-phone" value={form.contactPhone} onChange={e => set('contactPhone', e.target.value)} className="mt-1.5" />
               </div>
-            )}
+            </div>
+            <div>
+              <Label htmlFor="tags">Tags (comma-separated, optional)</Label>
+              <Input id="tags" placeholder="e.g. laptop, MacBook, M3" value={form.tags} onChange={e => set('tags', e.target.value)} className="mt-1.5" />
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <Label htmlFor="quantity">Quantity (optional)</Label>
+                <Input id="quantity" type="number" min="1" placeholder="Stock count" value={form.quantity} onChange={e => set('quantity', e.target.value)} className="mt-1.5" />
+              </div>
+              <div className="flex items-center gap-2 mt-7">
+                <input type="checkbox" id="accept-payments" checked={form.acceptPayments} onChange={e => set('acceptPayments', e.target.checked)} className="rounded" />
+                <Label htmlFor="accept-payments" className="cursor-pointer">Accept Payments</Label>
+              </div>
+            </div>
             <div className="flex justify-between">
-              <Button type="button" variant="outline" onClick={() => setStep(1)}>Back</Button>
+              <Button type="button" variant="outline" onClick={() => setStep(1)}>← Back</Button>
               <Button type="button" disabled={!step2Valid} onClick={() => setStep(3)}>Continue →</Button>
             </div>
           </div>
         )}
 
+        {/* Step 3 — Media & Submit */}
         {step === 3 && (
-          <div className="space-y-6 animate-in-up">
+          <div className="space-y-4">
+            {/* Media upload */}
             <div>
-              <Label>Upload Images, Videos or Album</Label>
-              <p className="text-xs text-muted-foreground mt-1 mb-3">
-                Supported: JPG, PNG, GIF, MP4, MOV — up to 10 files, 50MB each.
-                Multiple images = album view automatically.
-              </p>
-              <div {...getRootProps()} className={`border-2 border-dashed rounded-xl p-8 text-center transition-all cursor-pointer ${isDragActive ? 'border-primary bg-primary/5' : 'border-border hover:border-primary/50 hover:bg-muted/30'} ${uploads.length >= 10 ? 'opacity-50 cursor-not-allowed' : ''}`}>
+              <Label className="mb-2 block">Photos / Videos (optional, max 10)</Label>
+              <div {...getRootProps()} className={`border-2 border-dashed rounded-xl p-6 text-center cursor-pointer transition-colors ${isDragActive ? 'border-primary bg-primary/5' : 'border-border hover:border-primary/40'}`}>
                 <input {...getInputProps()} />
-                <div className="flex items-center justify-center gap-3 mb-3">
-                  <ImagePlus className="w-8 h-8 text-muted-foreground" />
-                  <Video className="w-8 h-8 text-muted-foreground" />
-                  <Images className="w-8 h-8 text-muted-foreground" />
-                </div>
-                <p className="text-sm font-medium">{isDragActive ? 'Drop files here…' : 'Drop files or click to upload'}</p>
-                <p className="text-xs text-muted-foreground mt-1">
-                  {uploads.length > 0 ? `${uploads.length} file(s) selected` : 'Images, videos, or create an album with multiple images'}
-                </p>
+                <ImagePlus className="w-8 h-8 mx-auto mb-2 text-muted-foreground" />
+                <p className="text-sm text-muted-foreground">{isDragActive ? 'Drop files here…' : 'Drag & drop or click to upload'}</p>
+                <p className="text-xs text-muted-foreground mt-1">Images & videos up to 50 MB each</p>
               </div>
-
               {uploads.length > 0 && (
-                <div className="grid grid-cols-3 sm:grid-cols-4 gap-2 mt-3">
+                <div className="grid grid-cols-4 gap-2 mt-3">
                   {uploads.map((u, i) => (
-                    <div key={i} className="relative aspect-square rounded-lg overflow-hidden bg-muted group">
+                    <div key={i} className="relative aspect-square rounded-lg overflow-hidden group bg-muted">
                       {u.type === 'image' ? (
                         <img src={u.preview} alt="" className="w-full h-full object-cover" />
                       ) : (
@@ -417,16 +319,15 @@ export default function PostAdClient({ userId, userEmail, credits, hasPayoutAcco
                 <div className="flex justify-between"><span className="text-muted-foreground">Title</span><span className="font-medium truncate max-w-[200px]">{form.title}</span></div>
                 <div className="flex justify-between"><span className="text-muted-foreground">Category</span><span>{CATEGORIES.find(c => c.id === form.category)?.label}</span></div>
                 <div className="flex justify-between"><span className="text-muted-foreground">Price Type</span><span>{form.priceType}</span></div>
-                {form.priceType !== 'free' && form.price && (
-                  <div className="flex justify-between"><span className="text-muted-foreground">Price</span><span>₦{Number(form.price).toLocaleString()}</span></div>
-                )}
+                {form.priceType !== 'free' && form.price && <div className="flex justify-between"><span className="text-muted-foreground">Price</span><span>₦{Number(form.price).toLocaleString()}</span></div>}
                 <div className="flex justify-between"><span className="text-muted-foreground">Location</span><span>{form.location}</span></div>
-                <div className="flex justify-between"><span className="text-muted-foreground">Media</span><span>{uploads.length} file(s){uploads.length > 1 ? ' (album)' : ''}</span></div>
+                <div className="flex justify-between"><span className="text-muted-foreground">Media</span><span>{uploads.length} file(s)</span></div>
+                {!isFree && <div className="flex justify-between"><span className="text-muted-foreground">Cost</span><span className="text-amber-600 font-medium">{postCostCredits} credits</span></div>}
               </div>
             </div>
 
             <div className="flex justify-between">
-              <Button type="button" variant="outline" onClick={() => setStep(2)}>Back</Button>
+              <Button type="button" variant="outline" onClick={() => setStep(2)}>← Back</Button>
               <Button type="submit" disabled={loading || !canPost} className="gap-2">
                 {loading ? <><Loader2 className="w-4 h-4 animate-spin" /> Posting…</> : 'Post Ad Space'}
               </Button>

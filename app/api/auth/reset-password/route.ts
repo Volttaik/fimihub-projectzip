@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
-import { createAdminClient } from '@/lib/supabase/admin'
+import { hashPassword } from '@/lib/password'
+import pool from '@/lib/db'
 
 export async function POST(request: NextRequest) {
   try {
@@ -13,44 +14,29 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Password must be at least 6 characters' }, { status: 400 })
     }
 
-    const admin = createAdminClient()
+    const { rows } = await pool.query(
+      `SELECT id, user_id, expires_at, used FROM password_reset_tokens WHERE token = $1 LIMIT 1`,
+      [token]
+    )
 
-    const { data: row, error: lookupError } = await admin
-      .from('password_reset_tokens' as any)
-      .select('id, user_id, expires_at, used')
-      .eq('token', token)
-      .maybeSingle()
-
-    if (lookupError || !row) {
+    if (!rows.length) {
       return NextResponse.json({ error: 'Reset link is invalid or has already been used' }, { status: 400 })
     }
 
-    const tokenRow = row as { id: string; user_id: string; expires_at: string; used: boolean }
-
-    if (tokenRow.used) {
+    const row = rows[0]
+    if (row.used) {
       return NextResponse.json({ error: 'Reset link has already been used' }, { status: 400 })
     }
-    if (new Date(tokenRow.expires_at).getTime() < Date.now()) {
+    if (new Date(row.expires_at).getTime() < Date.now()) {
       return NextResponse.json({ error: 'Reset link has expired. Please request a new one.' }, { status: 400 })
     }
 
-    // Update the password and confirm the email at the same time — the user proved
-    // they can access the inbox by clicking this link, so we don't need a separate
-    // verification step. This prevents people getting stuck in a "can't log in,
-    // keep being asked to verify" loop after resetting their password.
-    const { error: updateError } = await admin.auth.admin.updateUserById(tokenRow.user_id, {
-      password,
-      email_confirm: true,
-    })
-    if (updateError) {
-      console.error('Password update failed:', updateError)
-      return NextResponse.json({ error: 'Could not update password' }, { status: 500 })
-    }
+    const password_hash = await hashPassword(password)
 
-    await Promise.all([
-      admin.from('password_reset_tokens' as any).update({ used: true }).eq('id', tokenRow.id),
-      admin.from('profiles').update({ email_verified: true }).eq('id', tokenRow.user_id),
+    await pool.query(`UPDATE profiles SET password_hash = $1, email_verified = TRUE WHERE id = $2`, [
+      password_hash, row.user_id,
     ])
+    await pool.query(`UPDATE password_reset_tokens SET used = TRUE WHERE id = $1`, [row.id])
 
     return NextResponse.json({ success: true })
   } catch (err) {

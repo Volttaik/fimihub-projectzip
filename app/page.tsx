@@ -1,33 +1,28 @@
 import { Suspense } from 'react'
-import { createClient } from '@/lib/supabase/server'
+import pool from '@/lib/db'
+import { getUser } from '@/lib/auth'
 import DiscoverClient from '@/components/DiscoverClient'
 import { Skeleton } from '@/components/ui/skeleton'
 import type { Ad } from '@/lib/supabase/types'
 
 async function getAds(): Promise<Ad[]> {
   try {
-    const supabase = await createClient()
-    const { data, error } = await supabase
-      .from('ads')
-      .select('*, profiles!ads_user_id_fkey(full_name, avatar_url, email)')
-      .eq('status', 'active')
-      .order('is_boosted', { ascending: false })
-      .order('created_at', { ascending: false })
-      .limit(100)
-    if (error || !data) return []
-    return data as Ad[]
+    const { rows } = await pool.query(`
+      SELECT a.*,
+        json_build_object(
+          'full_name', p.full_name,
+          'avatar_url', p.avatar_url,
+          'email', p.email
+        ) AS profiles
+      FROM ads a
+      LEFT JOIN profiles p ON p.id = a.user_id
+      WHERE a.status = 'active'
+      ORDER BY a.is_boosted DESC, a.created_at DESC
+      LIMIT 100
+    `)
+    return rows as Ad[]
   } catch {
     return []
-  }
-}
-
-async function getCurrentUserId(): Promise<string | null> {
-  try {
-    const supabase = await createClient()
-    const { data: { user } } = await supabase.auth.getUser()
-    return user?.id ?? null
-  } catch {
-    return null
   }
 }
 
@@ -53,14 +48,14 @@ function DiscoverSkeleton() {
 }
 
 export default async function DiscoverPage() {
-  const [ads, currentUserId] = await Promise.all([getAds(), getCurrentUserId()])
+  const [ads, user] = await Promise.all([getAds(), getUser()])
   return (
     <Suspense fallback={
       <div className="container mx-auto px-4 py-6 max-w-6xl">
         <DiscoverSkeleton />
       </div>
     }>
-      <DiscoverClient initialAds={ads} currentUserId={currentUserId} />
+      <DiscoverClient initialAds={ads} currentUserId={user?.id ?? null} />
     </Suspense>
   )
 }

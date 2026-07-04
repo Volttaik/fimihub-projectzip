@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
 import crypto from 'crypto'
 import { sendVerificationEmail } from '@/lib/email'
-import { createAdminClient } from '@/lib/supabase/admin'
+import pool from '@/lib/db'
 
 const TOKEN_LIFETIME_HOURS = 24
 
@@ -21,32 +21,23 @@ export async function POST(request: NextRequest) {
     }
 
     const origin = getOrigin(request)
-    const admin = createAdminClient()
-    const normalisedEmail = email.trim().toLowerCase()
+    const normalised = email.trim().toLowerCase()
 
-    const { data: profile } = await admin
-      .from('profiles')
-      .select('id, full_name, email, email_verified')
-      .ilike('email', normalisedEmail)
-      .maybeSingle()
-
-    // Always return success to avoid email enumeration
-    if (!profile) return NextResponse.json({ success: true })
-    if (profile.email_verified) {
-      return NextResponse.json({ success: true, alreadyVerified: true })
-    }
+    const { rows } = await pool.query(
+      `SELECT id, full_name, email, email_verified FROM profiles WHERE LOWER(email) = $1 LIMIT 1`,
+      [normalised]
+    )
+    if (!rows.length) return NextResponse.json({ success: true })
+    const profile = rows[0]
+    if (profile.email_verified) return NextResponse.json({ success: true, alreadyVerified: true })
 
     const token = crypto.randomBytes(32).toString('hex')
-    const expiresAt = new Date(Date.now() + TOKEN_LIFETIME_HOURS * 60 * 60 * 1000).toISOString()
+    const expiresAt = new Date(Date.now() + TOKEN_LIFETIME_HOURS * 3600 * 1000).toISOString()
 
-    const { error: tokenError } = await admin
-      .from('email_verification_tokens' as any)
-      .insert({ user_id: profile.id, token, expires_at: expiresAt })
-
-    if (tokenError) {
-      console.error('Resend verification token insert failed:', tokenError)
-      return NextResponse.json({ error: 'Could not create verification link' }, { status: 500 })
-    }
+    await pool.query(
+      `INSERT INTO email_verification_tokens (user_id, token, expires_at) VALUES ($1, $2, $3)`,
+      [profile.id, token, expiresAt]
+    )
 
     if (!process.env.EMAIL_USER || !process.env.EMAIL_APP_PASSWORD) {
       return NextResponse.json({ success: true, warning: 'Email not configured' })
